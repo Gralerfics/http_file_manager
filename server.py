@@ -1,3 +1,4 @@
+import sys
 import argparse
 import socket
 
@@ -23,4 +24,5 @@ if __name__ == '__main__':
         launch(args.ip, args.port)
     except KeyboardInterrupt:
         print('Server stopping...')
+        sys.exit(0)
 
