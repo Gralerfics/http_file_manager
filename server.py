@@ -1,13 +1,8 @@
 import sys
 import argparse
-import socket
 
-
-# ...
-
-
-def launch(address, port):
-    pass
+from myhttp.server import HTTPSocketServer
+from myhttp.logging import log_print, LogLevel
 
 
 def cli_parser():
@@ -21,8 +16,14 @@ if __name__ == '__main__':
     args = cli_parser()
     
     try:
-        launch(args.ip, args.port)
+        server = HTTPSocketServer(args.ip, args.port)
+        server.launch()
     except KeyboardInterrupt:
-        print('Server stopping...')
+        log_print('Shutting down...', LogLevel.INFO)
+        server.shutdown()
+        log_print('Server is shut down', LogLevel.INFO)
         sys.exit(0)
+    except:
+        log_print(f'Unknown error', LogLevel.ERROR)
+        sys.exit(1)
 
