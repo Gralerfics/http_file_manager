@@ -1,1 +1,3 @@
 data/
+myhttp/__pycache__/
+myhttp/server/__pycache__/
