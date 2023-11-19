@@ -2,7 +2,7 @@ import socket
 import threading
 import selectors
 
-from .logging import log_print, LogLevel
+from ..log import log_print, LogLevel
 
 
 class TCPSocketServer:
@@ -75,18 +75,4 @@ class TCPSocketServer:
 
     def handle_connection(self, connection):
         pass
-
-
-class HTTPSocketServer(TCPSocketServer):
-    def __init__(self, hostname, port):
-        super().__init__(hostname, port)
-    
-    def handle_connection(self, connection):
-        # test handler
-        data = connection.recv(1024)
-        if not data:
-            self.shutdown_connection(connection)
-        else:
-            log_print(f'Send: {data}', 'HANDLE_CONNECTION')
-            connection.sendall(data)
 

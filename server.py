@@ -1,8 +1,8 @@
 import sys
 import argparse
 
-from myhttp.server import HTTPSocketServer
-from myhttp.logging import log_print, LogLevel
+from myhttp.server import HTTPServer
+from myhttp.log import log_print, LogLevel
 
 
 def cli_parser():
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     args = cli_parser()
     
     try:
-        server = HTTPSocketServer(args.ip, args.port)
+        server = HTTPServer(args.ip, args.port)
         server.launch()
     except KeyboardInterrupt:
         log_print('Shutting down...', LogLevel.INFO)
