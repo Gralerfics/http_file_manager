@@ -1,4 +1,4 @@
-from .exception import HTTPMessageError
+from .exception import HTTPStatusException
 
 
 class HTTPRequestLine:
@@ -33,19 +33,20 @@ class HTTPStatusLine:
         try:
             stat_code = int(splitted[1])
         except ValueError:
-            raise HTTPMessageError('Invalid status code')
+            raise HTTPStatusException(400)
         return HTTPStatusLine(splitted[0], stat_code, splitted[2])
 
 
 class HTTPHeaders:
     def __init__(self, headers = {}):
-        self.headers = headers
+        self.headers: dict = headers
     
     def serialize(self):
         return ''.join([f'{key}: {value}\r\n' for key, value in self.headers.items()]).encode()
-
+    
     @staticmethod
     def parse(lines):
+        # TODO: 是否会有重复的标头 key？应该没有吧。
         headers = {}
         splitted = lines.split(b'\r\n')
         for line in splitted:
@@ -53,13 +54,12 @@ class HTTPHeaders:
             if len(splitted) == 2:
                 headers[splitted[0]] = splitted[1]
             elif len(line) != 0:
-                raise HTTPMessageError('Invalid header')
+                raise HTTPStatusException(400)
         return HTTPHeaders(headers)
 
 
 class HTTPRequestMessage:
-    def __init__(self, request_line, headers, body = b'\r\n'):
-        # TODO: (下同) 空请求体是默认 b'\r\n' 吗？
+    def __init__(self, request_line, headers, body = b''):
         self.request_line = request_line
         self.headers = headers
         self.body = body
@@ -69,7 +69,7 @@ class HTTPRequestMessage:
 
 
 class HTTPResponseMessage:
-    def __init__(self, status_line, headers, body = b'\r\n'):
+    def __init__(self, status_line, headers, body = b''):
         self.status_line = status_line
         self.headers = headers
         self.body = body

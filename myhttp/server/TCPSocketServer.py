@@ -44,6 +44,7 @@ class TCPSocketServer:
                         self.launch_connection()
                     else:
                         # connection socket is triggered
+                        # TODO: 除了来新数据、连接 reset，还有什么情况会触发 connection socket 的变动吗？welcome socket 同。
                         try:
                             self.handle_connection(connection)
                         except ConnectionResetError:
@@ -61,7 +62,7 @@ class TCPSocketServer:
         # accept and register connection socket
         connection, address = self.sock.accept()
         self.selector.register(connection, selectors.EVENT_READ)
-        log_print(f'Connection from {address[0]}:{address[1]} registered', LogLevel.INFO)
+        log_print(f'Connection from <{address[0]}:{address[1]}> registered', LogLevel.INFO)
 
     def shutdown_connection(self, connection):
         address = connection.getpeername()
@@ -71,7 +72,7 @@ class TCPSocketServer:
         self.selector.unregister(connection)
         connection.shutdown(socket.SHUT_WR)
         connection.close()
-        log_print(f'Connection from {address[0]}:{address[1]} unregistered', LogLevel.INFO)
+        log_print(f'Connection from <{address[0]}:{address[1]}> unregistered', LogLevel.INFO)
 
     def handle_connection(self, connection):
         pass
