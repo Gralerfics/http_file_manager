@@ -3,7 +3,6 @@ import argparse
 
 from myhttp.server import HTTPServer
 from myhttp.log import log_print, LogLevel
-from myhttp.request import HTTPRequestHandler
 
 
 def cli_parser():
@@ -13,11 +12,22 @@ def cli_parser():
     return argument_parser.parse_args()
 
 
+args = cli_parser()
+server = HTTPServer(args.ip, args.port)
+
+
+@server.route('/')
+def test_get(request):
+    print('hahaha')
+    print(request.request_line.method)
+    print(request.request_line.path)
+    print(request.request_line.version)
+    print(request.headers.headers)
+    print(request.body)
+
+
 if __name__ == '__main__':
-    args = cli_parser()
-    
     try:
-        server = HTTPServer(args.ip, args.port, HTTPRequestHandler)
         server.launch()
     except KeyboardInterrupt:
         log_print('Shutting down...', LogLevel.INFO)

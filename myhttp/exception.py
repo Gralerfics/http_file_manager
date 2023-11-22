@@ -5,8 +5,8 @@ class ExceptionWithStatusCode(Exception):
 
 class HTTPStatusException(ExceptionWithStatusCode):
     status_description = {
-        # 200: 'OK',
-        # 206: 'Partial Content',
+        200: 'OK',
+        206: 'Partial Content',
         301: 'Redirect',
         400: 'Bad Request',
         401: 'Unauthorized',

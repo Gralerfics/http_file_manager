@@ -1,18 +1,22 @@
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
 from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
+from ..request import SimpleHTTPRequestHandler
 from ..exception import HTTPStatusException
 
 
 class HTTPServer(TCPSocketServer):
     recv_buffer_size = 4096
     
-    def __init__(self, hostname, port, request_handler_class):
+    def __init__(self, hostname, port, request_handler = SimpleHTTPRequestHandler()):
         super().__init__(hostname, port)
-        self.request_handler_class = request_handler_class
+        self.request_handler = request_handler
         
         self.recv_concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
         self.recv_prepare_for_next_request()
+        
+        self.route_table = {}
+        self.request_handler.route_table = self.route_table
     
     def recv_set_target(self, target_type, target_value = None, next_state = None):
         self.recv_target_type = target_type
@@ -46,7 +50,7 @@ class HTTPServer(TCPSocketServer):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
         
         try:
-            response = self.request_handler_class.handle(request)
+            response = self.request_handler.handle(request)
         except HTTPStatusException as e:
             # TODO: error page
             code = e.status_code
@@ -159,4 +163,11 @@ class HTTPServer(TCPSocketServer):
                         self.recv_prepare_for_next_request()
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
+
+    def route(self, path, method = 'GET'): # decorator allowing user to register handler for specific path and method
+        def wrapper(func):
+            # TODO: 处理一下？
+            self.route_table[(path, method)] = func
+            return func
+        return wrapper
 
