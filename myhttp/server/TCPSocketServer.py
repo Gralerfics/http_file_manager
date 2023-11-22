@@ -44,7 +44,7 @@ class TCPSocketServer:
                         self.launch_connection()
                     else:
                         # connection socket is triggered
-                        # TODO: 除了来新数据、连接 reset，还有什么情况会触发 connection socket 的变动吗？welcome socket 同。
+                            # TODO: 除了来新数据、连接 reset，还有什么情况会触发 connection socket 的变动吗？welcome socket 同。
                         try:
                             self.handle_connection(connection)
                         except ConnectionResetError:

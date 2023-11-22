@@ -1,17 +1,27 @@
-# import
+from .message import HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
 
 
 class BaseRequestHandler:
-    def __init__(self, request):
-        self.request = request
+    http_version = 'HTTP/1.1'
 
-    def handle(self):
+    @staticmethod
+    def handle(request):
         # to be overrided
         pass
 
 
-class HTTPRequestHandler:
-    pass
+class HTTPRequestHandler(BaseRequestHandler):
+    @staticmethod
+    def handle(request: HTTPRequestMessage):
+        return HTTPResponseMessage(
+            HTTPStatusLine('HTTP/1.1', 200, 'OK'),
+            HTTPHeaders({
+                'Content-Type': 'text/html; charset=utf-8',
+                'Content-Length': str(len('<h1>Hello, World!</h1>'))
+            }),
+            '<h1>Hello, World!</h1>'.encode()
+        )
+
 
 # 实例化组合进 HTTPServer 对象，在其事件循环中调用，处理请求，发送响应
     # 借助 HTTPServer 获取请求、发送响应
@@ -25,3 +35,4 @@ class HTTPRequestHandler:
         # or 只实现抽象接口，外面建个新包实现 file manager，在其内集成之
             # 这样还是不同于实际的服务器，so 还可以在方法实现内调用编写的网络应用，然后按 webapp 的开发方式写 file manager
         # 补充：http.server 包中的实现是在 SimpleHTTPRequestHandler 中的 do_GET 等方法中调用的，也就是写死的，其它功能是再次继承来实现的，例如 CGIHTTPRequestHandler
+

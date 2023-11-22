@@ -6,8 +6,9 @@ from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage
 class HTTPServer(TCPSocketServer):
     recv_buffer_size = 4096
     
-    def __init__(self, hostname, port):
+    def __init__(self, hostname, port, request_handler_class):
         super().__init__(hostname, port)
+        self.request_handler_class = request_handler_class
         
         self.recv_concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
         self.recv_prepare_for_next_request()
@@ -40,18 +41,14 @@ class HTTPServer(TCPSocketServer):
             # 3: receiving chunk data (chunked)
             # 4: received all
     
-    def handle_request(self, http_request):
+    def handle_request(self, connection, request):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
-        # TODO: 调用 request handler 处理（给出 request，返回 response），代其返回 response，可能做些处理
+        
+        response = self.request_handler_class.handle(request)
+        
         # TODO: 关于 Connection: Close 的处理
         
-        print(http_request.request_line.method)
-        print(http_request.request_line.path)
-        print(http_request.request_line.version)
-        print(http_request.headers.headers)
-        print(http_request.body)
-        
-        pass
+        connection.send(response.serialize())
     
     def handle_connection(self, connection):
         peek_data = connection.recv(self.recv_buffer_size)
@@ -60,7 +57,7 @@ class HTTPServer(TCPSocketServer):
             self.shutdown_connection(connection)
         else:
             address = connection.getpeername()
-            log_print(f'Data from <{address[0]}:{address[1]}>: {peek_data}', 'RAW_DATA')
+            # log_print(f'Data from <{address[0]}:{address[1]}>: {peek_data}', 'RAW_DATA')
             self.recv_concatenate_buffer += peek_data
             
             while True: # keep on trying to finish and publish targets
@@ -90,10 +87,10 @@ class HTTPServer(TCPSocketServer):
                         
                         # parse request line
                         eorl = self.recv_header.find(b'\r\n')
-                        self.recv_request_line_encapsulated = HTTPRequestLine.parse(self.recv_header[:eorl])
+                        self.recv_request_line_encapsulated = HTTPRequestLine.from_parsing(self.recv_header[:eorl])
                         
                         # parse headers
-                        self.recv_headers_encapsulated = HTTPHeaders.parse(self.recv_header[(eorl + 2):])
+                        self.recv_headers_encapsulated = HTTPHeaders.from_parsing(self.recv_header[(eorl + 2):])
                         if self.recv_headers_encapsulated.headers.__contains__('Content-Length'):
                             self.recv_set_target(
                                 target_type = 0,
@@ -142,7 +139,7 @@ class HTTPServer(TCPSocketServer):
                             ) # to receive next chunk size
                     else: # self.recv_state == 4:
                         # received all
-                        self.handle_request(HTTPRequestMessage(self.recv_request_line_encapsulated, self.recv_headers_encapsulated, self.recv_body))
+                        self.handle_request(connection, HTTPRequestMessage(self.recv_request_line_encapsulated, self.recv_headers_encapsulated, self.recv_body))
                         self.recv_prepare_for_next_request()
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
