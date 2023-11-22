@@ -10,11 +10,11 @@ class HTTPRequestLine:
     def serialize(self):
         return f'{self.method} {self.path} {self.version}\r\n'.encode()
     
-    @staticmethod
-    def parse(line):
+    @classmethod
+    def from_parsing(c, line):
         # e.g. b'GET / HTTP/1.1'
         splitted = line.decode().split(' ')
-        return HTTPRequestLine(splitted[0], splitted[1], splitted[2])
+        return c(splitted[0], splitted[1], splitted[2])
 
 
 class HTTPStatusLine:
@@ -26,15 +26,15 @@ class HTTPStatusLine:
     def serialize(self):
         return f'{self.version} {self.status_code} {self.status_desc}\r\n'.encode()
     
-    @staticmethod
-    def parse(line):
+    @classmethod
+    def from_parsing(c, line):
         # e.g. b'HTTP/1.1 200 OK'
         splitted = line.decode('utf-8').split(' ')
         try:
             stat_code = int(splitted[1])
         except ValueError:
             raise HTTPStatusException(400)
-        return HTTPStatusLine(splitted[0], stat_code, splitted[2])
+        return c(splitted[0], stat_code, splitted[2])
 
 
 class HTTPHeaders:
@@ -44,8 +44,8 @@ class HTTPHeaders:
     def serialize(self):
         return ''.join([f'{key}: {value}\r\n' for key, value in self.headers.items()]).encode()
     
-    @staticmethod
-    def parse(lines):
+    @classmethod
+    def from_parsing(c, lines):
         # TODO: 是否会有重复的标头 key？应该没有吧。
         headers = {}
         splitted = lines.split(b'\r\n')
@@ -55,7 +55,7 @@ class HTTPHeaders:
                 headers[splitted[0]] = splitted[1]
             elif len(line) != 0:
                 raise HTTPStatusException(400)
-        return HTTPHeaders(headers)
+        return c(headers)
 
 
 class HTTPRequestMessage:
