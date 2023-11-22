@@ -1,4 +1,5 @@
 from .message import HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
+from .exception import HTTPStatusException
 
 
 class BaseRequestHandler:
@@ -13,14 +14,25 @@ class BaseRequestHandler:
 class HTTPRequestHandler(BaseRequestHandler):
     @staticmethod
     def handle(request: HTTPRequestMessage):
-        return HTTPResponseMessage(
-            HTTPStatusLine('HTTP/1.1', 200, 'OK'),
-            HTTPHeaders({
-                'Content-Type': 'text/html; charset=utf-8',
-                'Content-Length': str(len('<h1>Hello, World!</h1>'))
-            }),
-            '<h1>Hello, World!</h1>'.encode()
-        )
+        method_handler = 'method_handler_' + request.request_line.method
+        if hasattr(HTTPRequestHandler, method_handler):
+            return getattr(HTTPRequestHandler, method_handler)(request)
+        else:
+            raise HTTPStatusException(405)
+    
+    @staticmethod
+    def method_handler_GET(request):
+        # TODO: 读取文件
+        # TODO: 权限检查
+        pass
+    
+    @staticmethod
+    def method_handler_HEAD(request):
+        pass
+    
+    @staticmethod
+    def method_handler_POST(request):
+        pass
 
 
 # 实例化组合进 HTTPServer 对象，在其事件循环中调用，处理请求，发送响应

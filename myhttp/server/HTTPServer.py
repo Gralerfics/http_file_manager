@@ -1,6 +1,7 @@
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
-from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage
+from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
+from ..exception import HTTPStatusException
 
 
 class HTTPServer(TCPSocketServer):
@@ -44,11 +45,26 @@ class HTTPServer(TCPSocketServer):
     def handle_request(self, connection, request):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
         
-        response = self.request_handler_class.handle(request)
+        try:
+            response = self.request_handler_class.handle(request)
+        except HTTPStatusException as e:
+            # TODO: error page
+            code = e.status_code
+            desc = HTTPStatusException.status_description[code]
+            response = HTTPResponseMessage(
+                HTTPStatusLine('HTTP/1.1', code, desc),
+                HTTPHeaders({
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Content-Length': str(len(f'<h1>{code} {desc}</h1>'))
+                }),
+                f'<h1>{code} {desc}</h1>'.encode()
+            )
         
-        # TODO: 关于 Connection: Close 的处理
+        if response:
+            connection.send(response.serialize())
         
-        connection.send(response.serialize())
+        if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
+            self.shutdown_connection(connection)
     
     def handle_connection(self, connection):
         peek_data = connection.recv(self.recv_buffer_size)
