@@ -77,3 +77,14 @@ class HTTPResponseMessage:
     def serialize(self):
         return self.status_line.serialize() + self.headers.serialize() + b'\r\n' + self.body
 
+    @classmethod
+    def text(c, status_code, status_desc, body = b''):
+        return c(
+            HTTPStatusLine('HTTP/1.1', status_code, status_desc),
+            HTTPHeaders({
+                'Content-Type': 'text/html; charset=utf-8',
+                'Content-Length': str(len(body))
+            }),
+            body
+        )
+

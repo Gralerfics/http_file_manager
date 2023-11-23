@@ -19,6 +19,8 @@ class HTTPServer(TCPSocketServer):
         
         self.route_table = list()
         self.request_handler.route_table = self.route_table
+        
+        self.error_handler = None
     
     def recv_set_target(self, target_type, target_value = None, next_state = None):
         self.recv_target_type = target_type
@@ -53,23 +55,17 @@ class HTTPServer(TCPSocketServer):
         
         try:
             response = self.request_handler.handle(request)
-        
-            if response:
-                connection.send(response.serialize())
-            else:
-                raise HTTPStatusException(500)
+            if not response:
+                raise HTTPStatusException(500) # TODO
         except HTTPStatusException as e:
-            # TODO: error page
             code = e.status_code
             desc = HTTPStatusException.status_description[code]
-            response = HTTPResponseMessage(
-                HTTPStatusLine('HTTP/1.1', code, desc),
-                HTTPHeaders({
-                    'Content-Type': 'text/html; charset=utf-8',
-                    'Content-Length': str(len(f'<h1>{code} {desc}</h1>'))
-                }),
-                f'<h1>{code} {desc}</h1>'.encode()
-            )
+            if self.error_handler:
+                response = self.error_handler(request, code, desc)
+            else:
+                response = HTTPResponseMessage.text(code, desc, f'{code} {desc}'.encode())
+        
+        connection.send(response.serialize())
         
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)
@@ -190,5 +186,10 @@ class HTTPServer(TCPSocketServer):
                 'pass_uriparams': pass_uriparams
             })
             return func
+
         return wrapper
+
+    def error(self, func):
+        self.error_handler = func
+        return func
 

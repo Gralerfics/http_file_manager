@@ -20,14 +20,11 @@ server = HTTPServer(args.ip, args.port)
 @server.route('/${username}/${directory:d}', pass_request = True, pass_uriparams = True)
 def test_get(request, username, directory, parameters = None):
     body = f'User: {username}, Directory: {directory}, Parameters: {parameters}'.encode()
-    return HTTPResponseMessage(
-        HTTPStatusLine('HTTP/1.1', 200, 'OK'),
-        HTTPHeaders({
-            'Content-Type': 'text/plain',
-            'Content-Length': str(len(body))
-        }),
-        body
-    )
+    return HTTPResponseMessage.text(200, 'OK', body)
+
+@server.error
+def error_handler(request, code, desc):
+    return HTTPResponseMessage.text(200, 'OK', f'<h1>Error: {code} {desc}</h1>'.encode())
 
 
 if __name__ == '__main__':
