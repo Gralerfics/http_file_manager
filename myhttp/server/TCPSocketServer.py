@@ -41,13 +41,14 @@ class TCPSocketServer:
                     
                     if connection == self.sock:
                         # welcome socket is triggered
+                            # TODO: 除了来新数据、连接 reset，还有什么情况会触发 welcome socket 的变动吗？假如不是新连接，会导致在 accept() 时阻塞吧。
                         self.launch_connection()
                     else:
                         # connection socket is triggered
-                            # TODO: 除了来新数据、连接 reset，还有什么情况会触发 connection socket 的变动吗？welcome socket 同。
+                            # TODO: 除了来新数据、连接 reset，还有什么情况会触发 connection socket 的变动吗？
                         try:
                             self.handle_connection(connection)
-                        except ConnectionResetError:
+                        except ConnectionError: # containing ConnectionResetError, ConnectionAbortedError, etc.
                             self.shutdown_connection(connection)
         finally:
             self.shutdown_signal = False

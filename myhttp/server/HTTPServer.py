@@ -145,13 +145,13 @@ class HTTPServer(TCPSocketServer):
         recv = self.recv_pool.get(connection)
         
         # receive data
-        peek_data = connection.recv(self.recv_buffer_size)
+        peek_data = connection.recv(self.recv_buffer_size) # the connection may be closed by client ConnectionAbortedError will be handled outside
         if not peek_data:
             # TODO: what has happened?
             self.shutdown_connection(connection)
         else:
-            # address = connection.getpeername()
-            # log_print(f'Data from <{address[0]}:{address[1]}>: {peek_data}', 'RAW_DATA')
+            address = connection.getpeername()
+            log_print(f'Data from <{address[0]}:{address[1]}>: {peek_data}', 'RAW_DATA')
             recv.concatenate_buffer += peek_data
             
             while True: # keep on trying to finish and publish targets

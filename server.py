@@ -30,6 +30,7 @@ def error_handler(code, desc):
 
 @server.route('${path:d}', method = 'GET', pass_connection = True, pass_request = True, pass_uriparams = True)
 def access_handler(connection, request, path, parameters = None):
+    print(path)
     return HTTPResponseMessage.from_text(200, 'OK', f'This is {path}.')
 
 
