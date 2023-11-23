@@ -20,7 +20,7 @@ class HTTPServer(TCPSocketServer):
         self.route_table = list()
         self.request_handler.route_table = self.route_table
         
-        self.error_handler = None
+        self.decorator_error_handler = None
     
     def recv_set_target(self, target_type, target_value = None, next_state = None):
         self.recv_target_type = target_type
@@ -60,8 +60,11 @@ class HTTPServer(TCPSocketServer):
         except HTTPStatusException as e:
             code = e.status_code
             desc = HTTPStatusException.status_description[code]
-            if self.error_handler:
-                response = self.error_handler(request, code, desc)
+            if self.decorator_error_handler:
+                if self.decorator_error_handler['pass_request']:
+                    response = self.decorator_error_handler['handler'](request, code, desc)
+                else:
+                    response = self.decorator_error_handler['handler'](code, desc)
             else:
                 response = HTTPResponseMessage.text(code, desc, f'{code} {desc}'.encode())
         
@@ -163,7 +166,7 @@ class HTTPServer(TCPSocketServer):
                         self.recv_prepare_for_next_request()
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
-
+    
     def route(self, path, method = 'GET', pass_request = False, pass_uriparams = False, re_path = False): # decorator allowing user to register handler for specific path and method
         """
             reserved keywords in path:
@@ -189,7 +192,13 @@ class HTTPServer(TCPSocketServer):
 
         return wrapper
 
-    def error(self, func):
-        self.error_handler = func
-        return func
+    def error(self, pass_request = False):
+        def wrapper(func):
+            self.decorator_error_handler = {
+                'handler': func,
+                'pass_request': pass_request
+            }
+            return func
+        
+        return wrapper
 

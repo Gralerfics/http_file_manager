@@ -21,7 +21,7 @@ class SimpleHTTPRequestHandler:
                 continue
             match = params['compiled_pattern'].match(request.request_line.path)
             if match:
-                match_grp = match.groupdict()
+                match_grp = {key: value for key, value in match.groupdict().items() if value is not None}
                 args_grp = {}
                 handler = params['handler']
                 
