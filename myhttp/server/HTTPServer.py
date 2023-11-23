@@ -1,9 +1,8 @@
-import re
 from enum import Enum
 
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
-from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
+from ..message import URL, HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
 from ..request import SimpleHTTPRequestHandler
 from ..exception import HTTPStatusException
 
@@ -85,6 +84,40 @@ class RecvPool:
 
 
 """
+    RouteTree:
+        tree: RouteTreeNode
+"""
+class RouteTree:
+    class Node:
+        def __init__(self):
+            self.funcs = {}
+            self.children = {}
+    
+    def __init__(self):
+        self.tree = RouteTree.Node()
+
+    def extend(self, path_list, func, method):
+        node = self.tree
+        for path in path_list:
+            if not node.children.__contains__(path):
+                node.children[path] = RouteTree.Node()
+            node = node.children[path]
+        node.funcs[method] = func
+
+    def search(self, path_list, method):
+        node = self.tree
+        idx = 0
+        for path in path_list:
+            if not node.children.__contains__(path):
+                break
+            node = node.children[path]
+            idx += 1
+        if not node.funcs.__contains__(method):
+            return (None, None)
+        return (node.funcs[method], path_list[idx:])
+
+
+"""
     HTTPServer
 """
 class HTTPServer(TCPSocketServer):
@@ -93,10 +126,10 @@ class HTTPServer(TCPSocketServer):
     def __init__(self, hostname, port, request_handler = SimpleHTTPRequestHandler()):
         super().__init__(hostname, port)
         
-        self.route_table = list() # route mapping shared by all connections
+        self.route_tree = RouteTree() # route mapping tree shared by all connections
         
         self.server_request_handler = request_handler # request_handler shared by all connections
-        self.server_request_handler.route_table = self.route_table
+        self.server_request_handler.route_tree = self.route_tree
         
         self.server_error_handler = None # error handler shared by all connections
         
@@ -110,7 +143,6 @@ class HTTPServer(TCPSocketServer):
     
     """
         Handle an encapsulated request from `connection`
-        TODO: 重来
     """
     def handle_request(self, connection, request):
         # TODO: add default headers according to HTTP version?
@@ -202,31 +234,18 @@ class HTTPServer(TCPSocketServer):
     
     """
         Decorator for registering handler for specific path and method
+            path <- ['part', 'of', 'GET', 'path', 'without', 'matched', 'route']
+            connection <- connection object
+            request <- request object
+            parameters <- dict of GET parameters
     """
-    def route(self, path, method = 'GET', params = False, re_path = False): # decorator allowing user to register handler for specific path and method
+    def route(self, path, method = 'GET'): # decorator allowing user to register handler for specific path and method
         """
-            reserved keywords in path:
-                connection, request, parameters
+            func(path, connection, request, parameters)
         """
-        
-        # TODO: 换掉重来！！！！！！！
-        def convert_pattern(path):
-            # pattern = re.sub(r'\${(\w+):d}', r'(?P<\1>[^?#]+)', path)
-            pattern = re.sub(r'\${(\w+):d}', r'(?P<\1>[^?#]+|)', path)
-            pattern = re.sub(r'\${(\w+)}', r'(?P<\1>[^/?#]+)', pattern)
-            pattern += r'(?:\?(?P<parameters>[^#]+))?'
-            return f'^{pattern}$'
-        
         def wrapper(func):
-            path_pattern = path if re_path else convert_pattern(path)
-            self.route_table.append({
-                'compiled_pattern': re.compile(path_pattern),
-                'method': method,
-                'handler': func,
-                'params': params
-            })
+            self.route_tree.extend(URL.from_parsing(path).path_list, func, method)
             return func
-
         return wrapper
 
     """

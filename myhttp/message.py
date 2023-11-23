@@ -1,4 +1,31 @@
+import re
 from .exception import HTTPStatusException
+
+
+class URL:
+    path_pattern = re.compile(r'/([^/?]+)')
+    params_pattern = re.compile(r'\?([^/]+)')
+    
+    def __init__(self, path_list = [], params = {}):
+        self.path_list = path_list
+        self.params = params
+    
+    def serialize(self):
+        return '/' + '/'.join(self.path_list) + '?' + '&'.join([f'{key}={value}' for key, value in self.params.items()])
+    
+    @classmethod
+    def from_parsing(c, url):
+        path_matches = c.path_pattern.findall(url)
+        params_match = c.params_pattern.search(url)
+
+        if params_match:
+            params_string = params_match.group(1)
+            params_list = params_string.split('&')
+            get_params = {param.split('=')[0]: param.split('=')[1] for param in params_list}
+        else:
+            get_params = {}
+
+        return c(path_matches, get_params)
 
 
 class HTTPRequestLine:
