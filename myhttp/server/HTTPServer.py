@@ -1,3 +1,5 @@
+import re
+
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
 from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
@@ -15,7 +17,7 @@ class HTTPServer(TCPSocketServer):
         self.recv_concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
         self.recv_prepare_for_next_request()
         
-        self.route_table = {}
+        self.route_table = list()
         self.request_handler.route_table = self.route_table
     
     def recv_set_target(self, target_type, target_value = None, next_state = None):
@@ -164,10 +166,27 @@ class HTTPServer(TCPSocketServer):
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
 
-    def route(self, path, method = 'GET'): # decorator allowing user to register handler for specific path and method
+    def route(self, path, method = 'GET', pass_request = False, pass_uriparams = False, re_path = False): # decorator allowing user to register handler for specific path and method
+        """
+            reserved keywords in path:
+                request, parameters
+        """
+        
+        def convert_pattern(path):
+            pattern = re.sub(r'\${(\w+):d}', r'(?P<\1>[^?#]+)', path)
+            pattern = re.sub(r'\${(\w+)}', r'(?P<\1>[^/?#]+)', pattern)
+            pattern += r'(?:\?(?P<parameters>[^#]+))?'
+            return f'^{pattern}$'
+        
         def wrapper(func):
-            # TODO: 处理一下？
-            self.route_table[(path, method)] = func
+            path_pattern = path if re_path else convert_pattern(path)
+            self.route_table.append({
+                'compiled_pattern': re.compile(path_pattern),
+                'method': method,
+                'handler': func,
+                'pass_request': pass_request,
+                'pass_uriparams': pass_uriparams
+            })
             return func
         return wrapper
 

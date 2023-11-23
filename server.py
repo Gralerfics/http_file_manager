@@ -16,14 +16,13 @@ args = cli_parser()
 server = HTTPServer(args.ip, args.port)
 
 
-@server.route('/')
-def test_get(request):
+@server.route('/${username}/${directory:d}', pass_request = True, pass_uriparams = True)
+def test_get(request, username, directory, parameters = None):
     print('hahaha')
-    print(request.request_line.method)
     print(request.request_line.path)
-    print(request.request_line.version)
-    print(request.headers.headers)
-    print(request.body)
+    print(username)
+    print(directory)
+    print(parameters)
 
 
 if __name__ == '__main__':
@@ -39,3 +38,5 @@ if __name__ == '__main__':
         raise
         # sys.exit(1)
 
+
+# 下一步：转到 file_manager 包内，这里主程序调用之。
