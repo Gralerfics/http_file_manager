@@ -96,13 +96,14 @@ class RouteTree:
     def __init__(self):
         self.tree = RouteTree.Node()
 
-    def extend(self, path_list, func, method):
+    def extend(self, path_list, func, methods):
         node = self.tree
         for path in path_list:
             if not node.children.__contains__(path):
                 node.children[path] = RouteTree.Node()
             node = node.children[path]
-        node.funcs[method] = func
+        for method in methods:
+            node.funcs[method] = func
 
     def search(self, path_list, method):
         node = self.tree
@@ -239,12 +240,12 @@ class HTTPServer(TCPSocketServer):
             request <- request object
             parameters <- dict of GET parameters
     """
-    def route(self, path, method = 'GET'): # decorator allowing user to register handler for specific path and method
+    def route(self, path, methods = 'GET'): # decorator allowing user to register handler for specific path and method
         """
             func(path, connection, request, parameters)
         """
         def wrapper(func):
-            self.route_tree.extend(URL.from_parsing(path).path_list, func, method)
+            self.route_tree.extend(URL.from_parsing(path).path_list, func, methods)
             return func
         return wrapper
 

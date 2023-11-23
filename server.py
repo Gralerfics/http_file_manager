@@ -29,12 +29,7 @@ def error_handler(code, desc, connection, request):
     server.send_response(connection, server.error_page(code, desc))
 
 
-@server.route('/test_api', method = 'GET')
-def api_test(path, connection, request, parameters):
-    server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', f'{path}, {parameters}'))
-
-
-# @server.route('/backend_api/directory_list/${complete_path:d}', method = 'GET', params = True)
+# @server.route('/backend_api/directory_list', method = 'GET')
 # def api_directory_list(complete_path, connection, request, parameters = None):
 #     # TODO: authentication, 以及 401 和 404 哪个先？401 吧？
     
@@ -53,13 +48,13 @@ def api_test(path, connection, request, parameters):
 # #     pass
 
 
-# @server.route('/', method = ['GET', 'HEAD'], params = True)
+# @server.route('/', method = ['GET', 'HEAD'])
 # def index_handler(connection, request, parameters = None):
 #     body = server.directory_page('/')
 #     server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', body))
 
 
-# @server.route('/${user}/${path:d}', method = ['GET', 'HEAD'], params = True)
+# @server.route('/${user}/${path:d}', method = ['GET', 'HEAD'])
 # def access_handler(user, path, connection, request, parameters = None):
 #     # TODO: authentication, 以及 401 和 404 哪个先？401 吧？
     
