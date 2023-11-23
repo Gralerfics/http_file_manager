@@ -8,25 +8,27 @@ from ..request import SimpleHTTPRequestHandler
 from ..exception import HTTPStatusException
 
 
-class RecvTargetType(Enum):
-    """
+"""
+    RecvTargetType:
         0: require for length -> [target_length]
         1: require for marker -> [target_marker]
         2: received all (no target)
-    """
+"""
+class RecvTargetType(Enum):
     LENGTH = 0
     MARKER = 1
     NO_TARGET = 2
 
 
-class RecvState(Enum):
-    """
+"""
+    RecvState:
         0: receiving header
         1: receiving body (content-length)
         2: receiving chunk size (chunked)
         3: receiving chunk data (chunked)
         4: received all
-    """
+"""
+class RecvState(Enum):
     HEADER = 0
     BODY = 1
     CHUNK_SIZE = 2
@@ -34,6 +36,9 @@ class RecvState(Enum):
     ALL = 4
 
 
+"""
+    Object for storing data and flags when receiving data during a specific connection
+"""
 class RecvPoolObject:
     def __init__(self):
         self.concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
@@ -57,6 +62,10 @@ class RecvPoolObject:
         self.set_target(RecvTargetType.MARKER, b'\r\n\r\n', RecvState.HEADER)
 
 
+"""
+    Pool for storing RecvPoolObject for HTTP server
+    register and fetch using connections as handles
+"""
 class RecvPool:
     def __init__(self):
         self.pool = {}
@@ -75,6 +84,9 @@ class RecvPool:
         self.pool.pop(connection)
 
 
+"""
+    HTTPServer
+"""
 class HTTPServer(TCPSocketServer):
     recv_buffer_size = 5
     
@@ -90,7 +102,10 @@ class HTTPServer(TCPSocketServer):
         
         self.recv_pool = RecvPool() # each connection should have its own recv object
     
-    # TODO: 重来
+    """
+        Handle an encapsulated request from `connection`
+        TODO: 重来
+    """
     def handle_request(self, connection, request):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
         
@@ -116,7 +131,10 @@ class HTTPServer(TCPSocketServer):
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)
     
-    # TODO: chunked mode not tested
+    """
+        Handle a recv from `connection`
+        TODO: chunked mode not tested
+    """
     def handle_connection(self, connection): # handle a recv from `connection`
         # fetch recv object from pool for this connection
         if not self.recv_pool.get(connection):
@@ -186,6 +204,9 @@ class HTTPServer(TCPSocketServer):
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
     
+    """
+        Decorator for registering handler for specific path and method
+    """
     def route(self, path, method = 'GET', pass_request = False, pass_connection = False, pass_uriparams = False, re_path = False): # decorator allowing user to register handler for specific path and method
         """
             reserved keywords in path:
@@ -212,6 +233,9 @@ class HTTPServer(TCPSocketServer):
 
         return wrapper
 
+    """
+        Decorator for registering handler for error codes
+    """
     def error(self, pass_request = False):
         def wrapper(func):
             self.decorator_error_handler = {
