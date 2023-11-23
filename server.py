@@ -1,32 +1,42 @@
 import sys
 import argparse
 
-from myhttp.server import HTTPServer
-from myhttp.message import HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
 from myhttp.log import log_print, LogLevel
+from file_manager import FileManagerServer
 
 
+"""
+    CLI Parser & Server Initialization
+"""
 def cli_parser():
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('--ip', '-i', type = str, default = '0.0.0.0')
     argument_parser.add_argument('--port', '-p', type = int, default = 80)
     return argument_parser.parse_args()
 
-
 args = cli_parser()
-server = HTTPServer(args.ip, args.port)
+server = FileManagerServer(args.ip, args.port)
 
 
-@server.route('/${username}/${directory:d}', pass_request = True, pass_uriparams = True)
-def test_get(request, username, directory, parameters = None):
-    body = f'User: {username}, Directory: {directory}, Parameters: {parameters}'.encode()
-    return HTTPResponseMessage.text(200, 'OK', body)
+"""
+    Routes
+"""
+@server.error(pass_request = False)
+def error_handler(code, desc):
+    return server.error_handler(code, desc)
 
-@server.error
-def error_handler(request, code, desc):
-    return HTTPResponseMessage.text(200, 'OK', f'<h1>Error: {code} {desc}</h1>'.encode())
+@server.route('/', pass_request = True)
+def index_page(request):
+    return server.index_page(request)
+
+@server.route('/${username}/${filepath:d}', pass_request = True, pass_uriparams = True)
+def test_get(request, username, filepath, parameters = None):
+    return server.request_file(username, filepath)
 
 
+"""
+    Main
+"""
 if __name__ == '__main__':
     try:
         server.launch()
