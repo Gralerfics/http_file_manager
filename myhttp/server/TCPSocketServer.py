@@ -74,6 +74,10 @@ class TCPSocketServer:
         connection.shutdown(socket.SHUT_WR)
         connection.close()
         log_print(f'Connection from <{address[0]}:{address[1]}> unregistered', LogLevel.INFO)
+    
+    def connection_send(self, connection, data):
+        log_print(f'Data to <{connection.getpeername()[0]}:{connection.getpeername()[1]}>: {data}', 'RAW_DATA')
+        connection.send(data)
 
     def handle_connection(self, connection):
         pass

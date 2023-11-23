@@ -73,23 +73,25 @@ class HTTPResponseMessage:
         self.status_line = status_line
         self.headers = headers
         self.body = body
+        
+    def serialize_header(self):
+        return self.status_line.serialize() + self.headers.serialize() + b'\r\n'
     
     def serialize(self):
-        return self.status_line.serialize() + self.headers.serialize() + b'\r\n' + self.body
+        return self.serialize_header() + self.body
 
     @classmethod
-    def from_text(c, status_code, status_desc, body_decoded = ''):
-        body = body_decoded.encode()
+    def from_raw_text(c, status_code, status_desc, body_raw = b''):
         return c(
             HTTPStatusLine('HTTP/1.1', status_code, status_desc),
             HTTPHeaders({
                 'Content-Type': 'text/html; charset=utf-8',
-                'Content-Length': str(len(body))
+                'Content-Length': str(len(body_raw))
             }),
-            body
+            body_raw
         )
-    
+
     @classmethod
-    def from_file(c, real_filepath):
-        pass
+    def from_text(c, status_code, status_desc, body_decoded = ''):
+        return c.from_raw_text(status_code, status_desc, body_decoded.encode())
 

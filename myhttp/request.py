@@ -17,24 +17,23 @@ class SimpleHTTPRequestHandler:
     
     def method_handler(self, connection, request):
         for params in self.route_table:
-            if params['method'] != request.request_line.method:
+            if not (request.request_line.method in params['method']):
                 continue
             match = params['compiled_pattern'].match(request.request_line.path)
             if match:
                 match_grp = {key: value for key, value in match.groupdict().items() if value is not None}
                 args_grp = {}
-                handler = params['handler']
                 
-                if params['pass_connection']:
-                    args_grp['connection'] = connection
-                if params['pass_request']:
-                    args_grp['request'] = request
-                if params['pass_uriparams'] and match_grp.__contains__('parameters'):
+                args_grp['connection'] = connection
+                args_grp['request'] = request
+                
+                if params['params'] and match_grp.__contains__('parameters'):
                     parameters = match_grp.pop('parameters')
                     args_grp['parameters'] = dict(pair.split("=") for pair in parameters.split("&")) if parameters else {}
                 
                 args_grp.update(match_grp)
                 
+                handler = params['handler']
                 return handler(**args_grp)
         raise HTTPStatusException(404) # TODO: 一定是 404 吗？
 

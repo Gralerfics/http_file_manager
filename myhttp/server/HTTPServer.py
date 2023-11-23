@@ -103,33 +103,26 @@ class HTTPServer(TCPSocketServer):
         self.recv_pool = RecvPool() # each connection should have its own recv object
     
     def send_response(self, connection, response):
-        connection.send(response.serialize())
+        self.connection_send(connection, response.serialize())
+    
+    def send_chunk(self, connection, chunk_raw = b''):
+        self.connection_send(connection, f'{len(chunk_raw):X}\r\n'.encode() + chunk_raw + b'\r\n')
     
     """
         Handle an encapsulated request from `connection`
         TODO: 重来
     """
     def handle_request(self, connection, request):
-        # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
-        
+        # TODO: add default headers according to HTTP version?
         try:
-            response = self.server_request_handler.handle(connection, request)
-            # if not response:
-            #     raise HTTPStatusException(500) # TODO
+            self.server_request_handler.handle(connection, request)
         except HTTPStatusException as e:
             code = e.status_code
             desc = HTTPStatusException.status_description[code]
             if self.server_error_handler:
-                if self.server_error_handler['pass_request']:
-                    response = self.server_error_handler['handler'](request, code, desc)
-                else:
-                    response = self.server_error_handler['handler'](code, desc)
+                self.server_error_handler(code, desc, connection, request)
             else:
-                response = HTTPResponseMessage.from_text(code, desc, f'{code} {desc}'.encode())
-        
-        if response:
-            # TODO: 目前如果 response 为空就不发送，代表 handle 中自己进行了发送操作，例如使用 transfer-encoding: chunked 发送响应的情况
-            connection.send(response.serialize())
+                self.send_response(connection, HTTPResponseMessage.from_text(code, desc, f'{code} {desc}'))
         
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)
@@ -138,7 +131,7 @@ class HTTPServer(TCPSocketServer):
         Handle a recv from `connection`
         TODO: chunked mode not tested
     """
-    def handle_connection(self, connection): # handle a recv from `connection`
+    def handle_connection(self, connection):
         # fetch recv object from pool for this connection
         if not self.recv_pool.get(connection):
             recv = self.recv_pool.add(connection)
@@ -210,14 +203,16 @@ class HTTPServer(TCPSocketServer):
     """
         Decorator for registering handler for specific path and method
     """
-    def route(self, path, method = 'GET', pass_request = False, pass_connection = False, pass_uriparams = False, re_path = False): # decorator allowing user to register handler for specific path and method
+    def route(self, path, method = 'GET', params = False, re_path = False): # decorator allowing user to register handler for specific path and method
         """
             reserved keywords in path:
-                request, parameters
+                connection, request, parameters
         """
         
+        # TODO: 换掉重来！！！！！！！
         def convert_pattern(path):
-            pattern = re.sub(r'\${(\w+):d}', r'(?P<\1>[^?#]+)', path)
+            # pattern = re.sub(r'\${(\w+):d}', r'(?P<\1>[^?#]+)', path)
+            pattern = re.sub(r'\${(\w+):d}', r'(?P<\1>[^?#]+|)', path)
             pattern = re.sub(r'\${(\w+)}', r'(?P<\1>[^/?#]+)', pattern)
             pattern += r'(?:\?(?P<parameters>[^#]+))?'
             return f'^{pattern}$'
@@ -228,9 +223,7 @@ class HTTPServer(TCPSocketServer):
                 'compiled_pattern': re.compile(path_pattern),
                 'method': method,
                 'handler': func,
-                'pass_connection': pass_connection,
-                'pass_request': pass_request,
-                'pass_uriparams': pass_uriparams
+                'params': params
             })
             return func
 
@@ -239,13 +232,7 @@ class HTTPServer(TCPSocketServer):
     """
         Decorator for registering handler for error codes
     """
-    def error(self, pass_request = False):
-        def wrapper(func):
-            self.server_error_handler = {
-                'handler': func,
-                'pass_request': pass_request
-            }
-            return func
-        
-        return wrapper
+    def errorhandler(self, func):
+        self.server_error_handler = func
+        return func
 
