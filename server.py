@@ -28,7 +28,7 @@ def error_handler(code, desc):
 
 @server.route('${path:d}', pass_connection = True, pass_request = True, pass_uriparams = True)
 def access_handler(connection, request, path, parameters = None):
-    print(path)
+    return server.error_page(200, 'ACCESSED')
 
 
 # @server.route('/', pass_request = True)

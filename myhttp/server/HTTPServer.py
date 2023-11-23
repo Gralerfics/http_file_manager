@@ -1,4 +1,5 @@
 import re
+from enum import Enum
 
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
@@ -7,49 +8,89 @@ from ..request import SimpleHTTPRequestHandler
 from ..exception import HTTPStatusException
 
 
+class RecvTargetType(Enum):
+    """
+        0: require for length -> [target_length]
+        1: require for marker -> [target_marker]
+        2: received all (no target)
+    """
+    LENGTH = 0
+    MARKER = 1
+    NO_TARGET = 2
+
+
+class RecvState(Enum):
+    """
+        0: receiving header
+        1: receiving body (content-length)
+        2: receiving chunk size (chunked)
+        3: receiving chunk data (chunked)
+        4: received all
+    """
+    HEADER = 0
+    BODY = 1
+    CHUNK_SIZE = 2
+    CHUNK_DATA = 3
+    ALL = 4
+
+
+class RecvPoolObject:
+    def __init__(self):
+        self.concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
+        self.prepare()
+    
+    def set_target(self, target_type, target_value = None, next_state = None):
+        self.target_type = target_type
+        if target_type == RecvTargetType.LENGTH:
+            self.target_length = target_value
+        elif target_type == RecvTargetType.MARKER:
+            self.target_marker = target_value
+        else: # target_type == RecvTargetType.NO_TARGET
+            next_state = RecvState.ALL
+        self.state = next_state
+    
+    def prepare(self):
+        self.header = b''
+        self.request_line_encapsulated = None
+        self.headers_encapsulated = None
+        self.body = b''
+        self.set_target(RecvTargetType.MARKER, b'\r\n\r\n', RecvState.HEADER)
+
+
+class RecvPool:
+    def __init__(self):
+        self.pool = {}
+    
+    def get(self, connection):
+        if self.pool.__contains__(connection):
+            return self.pool[connection]
+        else:
+            return None
+    
+    def add(self, connection):
+        self.pool[connection] = RecvPoolObject()
+        return self.pool[connection]
+    
+    def remove(self, connection):
+        self.pool.pop(connection)
+
+
 class HTTPServer(TCPSocketServer):
-    recv_buffer_size = 4096
+    recv_buffer_size = 5
     
     def __init__(self, hostname, port, request_handler = SimpleHTTPRequestHandler()):
         super().__init__(hostname, port)
-        self.request_handler = request_handler
         
-        self.recv_concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
-        self.recv_prepare_for_next_request()
+        self.route_table = list() # route mapping shared by all connections
         
-        self.route_table = list()
+        self.request_handler = request_handler # request_handler shared by all connections
         self.request_handler.route_table = self.route_table
         
-        self.decorator_error_handler = None
-    
-    def recv_set_target(self, target_type, target_value = None, next_state = None):
-        self.recv_target_type = target_type
-        if target_type == 0:
-            self.recv_target_length = target_value
-        elif target_type == 1:
-            self.recv_target_marker = target_value
-        else: # target_type == 2
-            next_state = 4
-        self.recv_state = next_state
-    
-    def recv_prepare_for_next_request(self):
-        self.recv_header = b''
-        self.recv_request_line_encapsulated = None
-        self.recv_headers_encapsulated = None
-        self.recv_body = b''
+        self.decorator_error_handler = None # error handler shared by all connections
         
-        self.recv_set_target(target_type = 1, target_value = b'\r\n\r\n', next_state = 0)
-        # [recv_target_type]
-            # 0: require for length -> [recv_target_length]
-            # 1: require for marker -> [recv_target_marker]
-            # 2: received all (no target)
-        # [recv_state]
-            # 0: receiving header
-            # 1: receiving body (content-length)
-            # 2: receiving chunk size (chunked)
-            # 3: receiving chunk data (chunked)
-            # 4: received all
+        self.recv_pool = RecvPool() # each connection should have its own recv object
     
+    # TODO: 重来
     def handle_request(self, connection, request):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
         
@@ -75,97 +116,73 @@ class HTTPServer(TCPSocketServer):
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)
     
-    def handle_connection(self, connection):
+    # TODO: chunked mode not tested
+    def handle_connection(self, connection): # handle a recv from `connection`
+        # fetch recv object from pool for this connection
+        if not self.recv_pool.get(connection):
+            recv = self.recv_pool.add(connection)
+        recv = self.recv_pool.get(connection)
+        
+        # receive data
         peek_data = connection.recv(self.recv_buffer_size)
         if not peek_data:
             # TODO: what has happened?
             self.shutdown_connection(connection)
         else:
-            address = connection.getpeername()
+            # address = connection.getpeername()
             # log_print(f'Data from <{address[0]}:{address[1]}>: {peek_data}', 'RAW_DATA')
-            self.recv_concatenate_buffer += peek_data
+            recv.concatenate_buffer += peek_data
             
             while True: # keep on trying to finish and publish targets
                 target_finished = False
                 target_acquired = None
-                if self.recv_target_type == 0:
-                    # require for length
-                    if len(self.recv_concatenate_buffer) >= self.recv_target_length:
-                        target_acquired = self.recv_concatenate_buffer[:self.recv_target_length]
-                        self.recv_concatenate_buffer = self.recv_concatenate_buffer[self.recv_target_length:]
+                if recv.target_type == RecvTargetType.LENGTH:
+                    if len(recv.concatenate_buffer) >= recv.target_length:
+                        target_acquired = recv.concatenate_buffer[:recv.target_length]
+                        recv.concatenate_buffer = recv.concatenate_buffer[recv.target_length:]
                         target_finished = True
-                elif self.recv_target_type == 1:
-                    # require for marker
-                    find_idx = self.recv_concatenate_buffer.find(self.recv_target_marker)
+                elif recv.target_type == RecvTargetType.MARKER:
+                    find_idx = recv.concatenate_buffer.find(recv.target_marker)
                     if find_idx >= 0:
-                        target_acquired = self.recv_concatenate_buffer[:find_idx]
-                        self.recv_concatenate_buffer = self.recv_concatenate_buffer[(find_idx + len(self.recv_target_marker)):]
+                        target_acquired = recv.concatenate_buffer[:find_idx]
+                        recv.concatenate_buffer = recv.concatenate_buffer[(find_idx + len(recv.target_marker)):]
                         target_finished = True
-                else: # self.recv_target_type == 2
-                    # received all
+                else: # recv.target_type == RecvTargetType.NO_TARGET
                     target_finished = True
                 
                 if target_finished:
-                    if self.recv_state == 0:
-                        # header finished
-                        self.recv_header = target_acquired
+                    if recv.state == RecvState.HEADER:
+                        recv.header = target_acquired
                         
                         # parse request line
-                        eorl = self.recv_header.find(b'\r\n')
-                        self.recv_request_line_encapsulated = HTTPRequestLine.from_parsing(self.recv_header[:eorl])
+                        eorl = recv.header.find(b'\r\n')
+                        recv.request_line_encapsulated = HTTPRequestLine.from_parsing(recv.header[:eorl])
                         
                         # parse headers
-                        self.recv_headers_encapsulated = HTTPHeaders.from_parsing(self.recv_header[(eorl + 2):])
-                        if self.recv_headers_encapsulated.headers.__contains__('Content-Length'):
-                            self.recv_set_target(
-                                target_type = 0,
-                                target_value = int(self.recv_headers_encapsulated.headers['Content-Length']),
-                                next_state = 1
-                            ) # to receive body by content-length
-                        elif self.recv_headers_encapsulated.headers.__contains__('Transfer-Encoding'):
-                            self.recv_set_target(
-                                target_type = 1,
-                                target_value = b'\r\n',
-                                next_state = 2
-                            ) # to receive chunk size
-                        else: # TODO: 都没有默认 body 为空？
-                            self.recv_set_target(
-                                target_type = 0,
-                                target_value = 0,
-                                next_state = 1
-                            ) # to receive empty body
-                    elif self.recv_state == 1:
-                        # body by content-length finished
-                        self.recv_body = target_acquired
-                        self.recv_set_target(
-                            target_type = 2
-                        ) # to finish
-                    elif self.recv_state == 2:
-                        # chunk size by chunked finished
+                        recv.headers_encapsulated = HTTPHeaders.from_parsing(recv.header[(eorl + 2):])
+                        if recv.headers_encapsulated.headers.__contains__('Content-Length'):
+                            recv.set_target(RecvTargetType.LENGTH, int(recv.headers_encapsulated.headers['Content-Length']), RecvState.BODY)
+                        elif recv.headers_encapsulated.headers.__contains__('Transfer-Encoding'):
+                            recv.set_target(RecvTargetType.MARKER, b'\r\n', RecvState.CHUNK_SIZE)
+                        else:
+                            # TODO: no Content-Length or Transfer-Encoding, no body in default
+                            recv.set_target(RecvTargetType.LENGTH, 0, RecvState.BODY)
+                    elif recv.state == RecvState.BODY:
+                        recv.body = target_acquired
+                        recv.set_target(RecvTargetType.NO_TARGET)
+                    elif recv.state == RecvState.CHUNK_SIZE:
                         chunk_size = int(target_acquired, 16)
-                        self.recv_set_target(
-                            target_type = 0,
-                            target_value = chunk_size + 2, # to include \r\n
-                            next_state = 3
-                        ) # to receive chunk data
-                    elif self.recv_state == 3:
-                        # chunk data by chunked finished
+                        recv.set_target(RecvTargetType.LENGTH, chunk_size + 2, RecvState.CHUNK_DATA) # to include \r\n
+                    elif recv.state == RecvState.CHUNK_DATA:
                         chunk_data = target_acquired[:-2] # to exclude \r\n
                         if len(chunk_data) == 0:
-                            self.recv_set_target(
-                                target_type = 2
-                            ) # to finish
+                            recv.set_target(RecvTargetType.NO_TARGET)
                         else:
-                            self.recv_body += chunk_data
-                            self.recv_set_target(
-                                target_type = 1,
-                                target_value = b'\r\n',
-                                next_state = 2
-                            ) # to receive next chunk size
-                    else: # self.recv_state == 4:
-                        # received all
-                        self.handle_request(connection, HTTPRequestMessage(self.recv_request_line_encapsulated, self.recv_headers_encapsulated, self.recv_body))
-                        self.recv_prepare_for_next_request()
+                            recv.body += chunk_data
+                            recv.set_target(RecvTargetType.MARKER, b'\r\n', RecvState.CHUNK_SIZE)
+                    else: # recv.state == RecvState.ALL:
+                        self.handle_request(connection, HTTPRequestMessage(recv.request_line_encapsulated, recv.headers_encapsulated, recv.body))
+                        recv.prepare()
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
     
