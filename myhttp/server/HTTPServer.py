@@ -92,6 +92,9 @@ class RouteTree:
         def __init__(self):
             self.funcs = {}
             self.children = {}
+        
+        def __str__(self):
+            return f'funcs: {self.funcs}, children: {self.children}'
     
     def __init__(self):
         self.tree = RouteTree.Node()
@@ -102,6 +105,8 @@ class RouteTree:
             if not node.children.__contains__(path):
                 node.children[path] = RouteTree.Node()
             node = node.children[path]
+        if type(methods) == str:
+            methods = [methods]
         for method in methods:
             node.funcs[method] = func
 

@@ -86,7 +86,7 @@ class FileManagerServer(HTTPServer):
         real_path = self.root_directory + path
         return os.path.isfile(real_path)
     
-    def directory_list(self, path):
+    def list_directory(self, path):
         real_path = self.root_directory + path
         with os.scandir(real_path) as it:
             return json.dumps([entry.name for entry in it])

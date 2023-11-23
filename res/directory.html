@@ -31,7 +31,7 @@
             var path = encodeURIComponent(pathInput.value || '');
 
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/backend_api/directory_list/' + path, true);
+            xhr.open('GET', '/backend_api/list_directory/' + path, true);
 
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4) {

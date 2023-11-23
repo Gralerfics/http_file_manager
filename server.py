@@ -29,46 +29,46 @@ def error_handler(code, desc, connection, request):
     server.send_response(connection, server.error_page(code, desc))
 
 
-# @server.route('/backend_api/directory_list', method = 'GET')
-# def api_directory_list(complete_path, connection, request, parameters = None):
-#     # TODO: authentication, 以及 401 和 404 哪个先？401 吧？
+@server.route('/backend_api/list_directory', methods = 'GET')
+def api_list_directory(path, connection, request, parameters):
+    # TODO: authentication
     
-#     print(complete_path)
+    path_joined = '/'.join(path)
+    print(path_joined)
     
-#     if not server.is_exist(complete_path):
-#         raise HTTPStatusException(404)
+    if not server.is_exist(path_joined):
+        raise HTTPStatusException(404)
     
-#     body = server.directory_list(complete_path)
-#     server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', body))
-
-
-# # @server.route('/backend_api/user_register', method = 'POST', params = True)
-# # def api_user_register(connection, request, parameters = None):
-# #     print('register')
-# #     pass
-
-
-# @server.route('/', method = ['GET', 'HEAD'])
-# def index_handler(connection, request, parameters = None):
-#     body = server.directory_page('/')
-#     server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', body))
-
-
-# @server.route('/${user}/${path:d}', method = ['GET', 'HEAD'])
-# def access_handler(user, path, connection, request, parameters = None):
-#     # TODO: authentication, 以及 401 和 404 哪个先？401 吧？
+    if not server.is_directory(path_joined):
+        raise HTTPStatusException(400) # the parameter `path` must be a directory
     
-#     complete_path = user + '/' + path
-#     if not server.is_exist(complete_path):
-#         raise HTTPStatusException(404)
+    result = server.list_directory(path_joined)
+    server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', result))
+
+
+@server.route('/', methods = ['GET', 'HEAD'])
+def access_handler(path, connection, request, parameters):
+    # TODO: authentication, 以及 401 和 404 哪个先？401 吧？
     
-#     if server.is_directory(complete_path):
-#         body = server.directory_page(complete_path) if request.request_line.method == 'GET' else ''
-#         server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', body))
-#     elif server.is_file(complete_path):
-#         pass # TODO
-#     else:
-#         raise HTTPStatusException(403) # TODO: 那是什么？会有这种情况吗？
+    path_joined = '/'.join(path)
+    print(path_joined)
+    
+    if not server.is_exist(path_joined):
+        raise HTTPStatusException(404)
+    
+    if server.is_directory(path_joined):
+        html_body = server.directory_page(path_joined) if request.request_line.method == 'GET' else ''
+        server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', html_body))
+    elif server.is_file(path_joined):
+        pass # TODO
+    else:
+        raise HTTPStatusException(403) # TODO: 那是什么？会有这种情况吗？
+
+
+# @server.route('/backend_api/user_register', method = 'POST', params = True)
+# def api_user_register(connection, request, parameters = None):
+#     print('register')
+#     pass
 
 
 """
