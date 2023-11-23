@@ -88,19 +88,22 @@ class RecvPool:
     HTTPServer
 """
 class HTTPServer(TCPSocketServer):
-    recv_buffer_size = 5
+    recv_buffer_size = 4096
     
     def __init__(self, hostname, port, request_handler = SimpleHTTPRequestHandler()):
         super().__init__(hostname, port)
         
         self.route_table = list() # route mapping shared by all connections
         
-        self.request_handler = request_handler # request_handler shared by all connections
-        self.request_handler.route_table = self.route_table
+        self.server_request_handler = request_handler # request_handler shared by all connections
+        self.server_request_handler.route_table = self.route_table
         
-        self.decorator_error_handler = None # error handler shared by all connections
+        self.server_error_handler = None # error handler shared by all connections
         
         self.recv_pool = RecvPool() # each connection should have its own recv object
+    
+    def send_response(self, connection, response):
+        connection.send(response.serialize())
     
     """
         Handle an encapsulated request from `connection`
@@ -110,17 +113,17 @@ class HTTPServer(TCPSocketServer):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
         
         try:
-            response = self.request_handler.handle(connection, request)
+            response = self.server_request_handler.handle(connection, request)
             # if not response:
             #     raise HTTPStatusException(500) # TODO
         except HTTPStatusException as e:
             code = e.status_code
             desc = HTTPStatusException.status_description[code]
-            if self.decorator_error_handler:
-                if self.decorator_error_handler['pass_request']:
-                    response = self.decorator_error_handler['handler'](request, code, desc)
+            if self.server_error_handler:
+                if self.server_error_handler['pass_request']:
+                    response = self.server_error_handler['handler'](request, code, desc)
                 else:
-                    response = self.decorator_error_handler['handler'](code, desc)
+                    response = self.server_error_handler['handler'](code, desc)
             else:
                 response = HTTPResponseMessage.from_text(code, desc, f'{code} {desc}'.encode())
         
@@ -238,7 +241,7 @@ class HTTPServer(TCPSocketServer):
     """
     def error(self, pass_request = False):
         def wrapper(func):
-            self.decorator_error_handler = {
+            self.server_error_handler = {
                 'handler': func,
                 'pass_request': pass_request
             }

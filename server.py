@@ -4,6 +4,8 @@ import argparse
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
 
+from myhttp.message import HTTPResponseMessage
+
 
 """
     CLI Parser & Server Initialization
@@ -28,7 +30,7 @@ def error_handler(code, desc):
 
 @server.route('${path:d}', method = 'GET', pass_connection = True, pass_request = True, pass_uriparams = True)
 def access_handler(connection, request, path, parameters = None):
-    return server.error_page(200, 'ACCESSED')
+    return HTTPResponseMessage.from_text(200, 'OK', f'This is {path}.')
 
 
 # @server.route('/', pass_request = True)
