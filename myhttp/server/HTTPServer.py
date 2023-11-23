@@ -53,6 +53,11 @@ class HTTPServer(TCPSocketServer):
         
         try:
             response = self.request_handler.handle(request)
+        
+            if response:
+                connection.send(response.serialize())
+            else:
+                raise HTTPStatusException(500)
         except HTTPStatusException as e:
             # TODO: error page
             code = e.status_code
@@ -65,9 +70,6 @@ class HTTPServer(TCPSocketServer):
                 }),
                 f'<h1>{code} {desc}</h1>'.encode()
             )
-        
-        if response:
-            connection.send(response.serialize())
         
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)

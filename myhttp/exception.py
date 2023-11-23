@@ -14,6 +14,7 @@ class HTTPStatusException(ExceptionWithStatusCode):
         404: 'Not Found',
         405: 'Method Not Allowed',
         416: 'Range Not Satisfiable',
+        500: 'Internal Server Error', # TODO: not in the document
         502: 'Bad Gateway',
         503: 'Service Temporarily Unavailable'
     }

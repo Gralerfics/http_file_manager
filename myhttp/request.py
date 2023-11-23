@@ -32,9 +32,6 @@ class SimpleHTTPRequestHandler:
                     args_grp['request'] = request
                 args_grp.update(match_grp)
                 
-                handler(**args_grp)
-                
-                # break
-                raise HTTPStatusException(200) # TODO: 改为具体的 response
+                return handler(**args_grp)
         raise HTTPStatusException(404) # TODO: 一定是 404 吗？
 
