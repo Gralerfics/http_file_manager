@@ -23,15 +23,22 @@ server = FileManagerServer(args.ip, args.port)
 """
 @server.error(pass_request = False)
 def error_handler(code, desc):
-    return server.error_handler(code, desc)
+    return server.error_page(code, desc)
 
-@server.route('/', pass_request = True)
-def index_page(request):
-    return server.index_page(request)
 
-@server.route('/${username}/${filepath:d}', pass_request = True, pass_uriparams = True)
-def test_get(request, username, filepath, parameters = None):
-    return server.request_file(username, filepath)
+@server.route('${path:d}', pass_connection = True, pass_request = True, pass_uriparams = True)
+def access_handler(connection, request, path, parameters = None):
+    print(path)
+
+
+# @server.route('/', pass_request = True)
+# def index_page(request, parameters = None):
+#     return server.index_page(request)
+
+
+# @server.route('/${username}/${filepath:d}', pass_request = True, pass_uriparams = True)
+# def request_file(request, username, filepath, parameters = None):
+#     return server.request_file(username, filepath)
 
 
 """

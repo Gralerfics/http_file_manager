@@ -54,9 +54,9 @@ class HTTPServer(TCPSocketServer):
         # TODO: 确定是 1.1 版本吗？是否要在这里加入标头默认值自动添加？还是在 request handler 里？
         
         try:
-            response = self.request_handler.handle(request)
-            if not response:
-                raise HTTPStatusException(500) # TODO
+            response = self.request_handler.handle(connection, request)
+            # if not response:
+            #     raise HTTPStatusException(500) # TODO
         except HTTPStatusException as e:
             code = e.status_code
             desc = HTTPStatusException.status_description[code]
@@ -66,9 +66,11 @@ class HTTPServer(TCPSocketServer):
                 else:
                     response = self.decorator_error_handler['handler'](code, desc)
             else:
-                response = HTTPResponseMessage.text(code, desc, f'{code} {desc}'.encode())
+                response = HTTPResponseMessage.from_text(code, desc, f'{code} {desc}'.encode())
         
-        connection.send(response.serialize())
+        if response:
+            # TODO: 目前如果 response 为空就不发送，代表 handle 中自己进行了发送操作，例如使用 transfer-encoding: chunked 发送响应的情况
+            connection.send(response.serialize())
         
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)
@@ -167,7 +169,7 @@ class HTTPServer(TCPSocketServer):
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data
     
-    def route(self, path, method = 'GET', pass_request = False, pass_uriparams = False, re_path = False): # decorator allowing user to register handler for specific path and method
+    def route(self, path, method = 'GET', pass_request = False, pass_connection = False, pass_uriparams = False, re_path = False): # decorator allowing user to register handler for specific path and method
         """
             reserved keywords in path:
                 request, parameters
@@ -185,6 +187,7 @@ class HTTPServer(TCPSocketServer):
                 'compiled_pattern': re.compile(path_pattern),
                 'method': method,
                 'handler': func,
+                'pass_connection': pass_connection,
                 'pass_request': pass_request,
                 'pass_uriparams': pass_uriparams
             })

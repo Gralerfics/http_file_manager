@@ -78,7 +78,7 @@ class HTTPResponseMessage:
         return self.status_line.serialize() + self.headers.serialize() + b'\r\n' + self.body
 
     @classmethod
-    def text(c, status_code, status_desc, body = b''):
+    def from_text(c, status_code, status_desc, body = b''):
         return c(
             HTTPStatusLine('HTTP/1.1', status_code, status_desc),
             HTTPHeaders({
@@ -87,4 +87,8 @@ class HTTPResponseMessage:
             }),
             body
         )
+    
+    @classmethod
+    def from_file(c, real_filepath):
+        pass
 
