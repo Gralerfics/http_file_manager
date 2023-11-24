@@ -52,8 +52,7 @@ def upload_handler(path, connection, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
     
-    # TODO: 需要检查 route（是否只有 upload） 和 path（参数是否存在等） 吗？
-    if not parameters.__contains__('path'):
+    if len(path) > 1 or not parameters.__contains__('path'): # TODO: 400 Bad Request?
         raise HTTPStatusException(400)
     
     virtual_path = parameters['path'].strip('/')
@@ -72,8 +71,7 @@ def upload_handler(path, connection, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
     
-    # TODO: 需要检查 route（是否只有 delete） 和 path（参数是否存在等） 吗？
-    if not parameters.__contains__('path'):
+    if len(path) > 1 or not parameters.__contains__('path'): # TODO: 400 Bad Request?
         raise HTTPStatusException(400)
     
     virtual_path = parameters['path'].strip('/')

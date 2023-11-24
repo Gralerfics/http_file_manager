@@ -26,12 +26,17 @@ class HTMLUtils:
 
 
 class HTTPHeaderUtils:
+    # TODO: 这里的 400 都要慎重！有些浏览器发的标头千奇百怪，不能不支持就直接 400。
     def __init__(self):
         pass
     
     @staticmethod
-    def parse_authorization(value):
-        # e.g. Basic MTIxMTAxMDQ6MTIzNDU2, return (username, decrypted password)
+    def parse_authorization_basic(value):
+        """
+            [Format] Authorization: <type> <credentials>
+            [Example Value] Basic MTIxMTAxMDQ6MTIzNDU2
+            [Return] (username, decrypted password)
+        """
         splited = value.split(' ')
         if splited[0].lower() == 'basic':
             up_splited = base64.b64decode(splited[1]).decode().split(':')
@@ -40,16 +45,26 @@ class HTTPHeaderUtils:
             else:
                 raise HTTPStatusException(400)
         else:
-            raise HTTPStatusException(400)
+            return (None, None)
     
     @staticmethod
     def parse_cookie(value):
-        # e.g. session-id=[id]
-        splited = value.split('=')
-        if splited[0].lower() == 'session-id':
-            return splited[1]
-        else:
-            raise HTTPStatusException(400)
+        """
+            [Format] Cookie: <cookie-name>=<cookie-value>; ...
+            [Example Value] session-id=e53fc18600f64ec64c36b550a68fbe5a; __itrace_wid=34a8a195-5ac4-4503-3736-6cc89e8e02fc
+            [Return] cookie_dict
+        """
+        pairs_splited = value.split(';')
+        cookies = {}
+        for pair in pairs_splited:
+            pair = pair.strip()
+            pair_splited = pair.split('=')
+            if len(pair_splited) == 2:
+                key, value = pair_splited
+                cookies[key.strip().lower()] = value.strip() # case-insensitive key
+            elif len(pair) != 0:
+                raise HTTPStatusException(400)
+        return cookies
 
 
 class HTTPResponseGenerator:

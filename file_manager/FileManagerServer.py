@@ -155,20 +155,23 @@ class FileManagerServer(HTTPServer):
         new_cookie = None
         # there is a cookie: check if it is valid
         if not authenicated and request.headers.is_exist('Cookie'):
-            session_id = HTTPHeaderUtils.parse_cookie(request.headers.get('Cookie')) # parse cookie
-            cookie_info = self.cookie_manager.get(session_id) # fetch cookie
-            if cookie_info: # cookie exists
-                username, time_stamp, expire_time = cookie_info.get('username'), cookie_info.get('time_stamp'), cookie_info.get('expire_time')
-                if time_stamp + expire_time < time.time_ns(): # timeout detection
-                    self.cookie_manager.remove(session_id)
-                else:
-                    authenicated = True
+            cookie_dict = HTTPHeaderUtils.parse_cookie(request.headers.get('Cookie')) # parse cookie
+            session_id = cookie_dict.get('session-id', None)
+            if session_id:
+                cookie_info = self.cookie_manager.get(session_id) # fetch cookie
+                if cookie_info: # cookie exists
+                    username, time_stamp, expire_time = cookie_info.get('username'), cookie_info.get('time_stamp'), cookie_info.get('expire_time')
+                    if time_stamp + expire_time < time.time_ns(): # timeout detection
+                        self.cookie_manager.remove(session_id)
+                    else:
+                        authenicated = True
         # no cookie or cookie is invalid: check if there is valid authorization
         if not authenicated and request.headers.is_exist('Authorization'):
-            username, password = HTTPHeaderUtils.parse_authorization(request.headers.get('Authorization')) # parse authorization
-            if self.user_manager.authenticate(username, password):
-                new_cookie = self.cookie_manager.new(username, time.time_ns(), 10 * 1000 * 1000 * 1000)
-                authenicated = True
+            username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization
+            if username and password:
+                if self.user_manager.authenticate(username, password):
+                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 10 * 1000 * 1000 * 1000)
+                    authenicated = True
         # neither is valid
         if not authenicated:
             raise HTTPStatusException(401)
