@@ -156,7 +156,12 @@ class HTTPServer(TCPSocketServer):
         Handle an encapsulated request from `connection`
     """
     def handle_request(self, connection, request):
-        # TODO: add default headers according to HTTP version?
+        if not request.headers.is_exist('Connection'):
+            if self.get_http_version() == 'HTTP/1.1':
+                request.headers.set('Connection', 'keep-alive')
+            elif self.get_http_version() == 'HTTP/1.0':
+                request.headers.set('Connection', 'close')
+        
         try:
             self.server_request_handler.handle(connection, request)
         except HTTPStatusException as e:

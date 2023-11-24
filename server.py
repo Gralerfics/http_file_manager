@@ -22,6 +22,9 @@ def cli_parser():
 args = cli_parser()
 server = FileManagerServer(args.ip, args.port)
 
+# TODO: to be removed
+server.cookie_manager._write({})
+
 
 """
     Routes
