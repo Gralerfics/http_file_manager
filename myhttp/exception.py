@@ -1,10 +1,5 @@
-class ExceptionWithStatusCode(Exception):
-    def __init__(self, status_code):
-        self.status_code = status_code
-
-
-class HTTPStatusException(ExceptionWithStatusCode):
-    status_description = {
+class HTTPStatusException(Exception):
+    default_status_description = {
         200: 'OK',
         206: 'Partial Content',
         301: 'Redirect',
@@ -18,4 +13,8 @@ class HTTPStatusException(ExceptionWithStatusCode):
         502: 'Bad Gateway',
         503: 'Service Temporarily Unavailable'
     }
+    
+    def __init__(self, status_code, status_desc = None):
+        self.status_code = status_code
+        self.status_desc = status_desc if status_desc else self.default_status_description[status_code]
 

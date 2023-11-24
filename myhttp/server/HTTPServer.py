@@ -160,7 +160,7 @@ class HTTPServer(TCPSocketServer):
             self.server_request_handler.handle(connection, request)
         except HTTPStatusException as e:
             code = e.status_code
-            desc = HTTPStatusException.status_description[code]
+            desc = e.status_desc
             not_sent = False
             if self.server_error_handler:
                 if self.server_error_handler.__contains__(code):

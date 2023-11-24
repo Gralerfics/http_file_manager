@@ -22,14 +22,6 @@ def cli_parser():
 args = cli_parser()
 server = FileManagerServer(args.ip, args.port)
 
-# TODO: to be removed
-# server.user_manager.register('client1', '123')
-# server.user_manager.register('client2', '234')
-# server.user_manager.register('client3', '345')
-print(server.user_manager._read())
-print(server.cookie_manager._read())
-# server.cookie_manager._write({})
-
 
 """
     Routes
@@ -54,7 +46,7 @@ def access_handler(path, connection, request, parameters):
 
     # 有 Cookie 先看看有没有用
     if not authenicated and request.headers.headers.__contains__('Cookie'):
-        session_id = HTTPHeaderUtils.parse_cookie(request.headers.headers['Cookie']) # parse cookie
+        session_id = HTTPHeaderUtils.parse_cookie(request.headers.headers['Cookie']) # psarse cookie
         cookie_info = server.cookie_manager.get(session_id) # search cookie
         if cookie_info: # cookie exists
             get_username = cookie_info.get('username')
@@ -79,10 +71,11 @@ def access_handler(path, connection, request, parameters):
     if not authenicated:
         raise HTTPStatusException(401)
     
-    # 有权限，返回页面
+    # 有权限，但不存在
     if not server.is_exist(path_joined):
         raise HTTPStatusException(404)
     
+    # 判断是文件还是目录
     if server.is_directory(path_joined):
         html_body = server.directory_page(path_joined) if request.request_line.method == 'GET' else ''
         server.send_response(connection, HTTPResponseGenerator.text_html(
