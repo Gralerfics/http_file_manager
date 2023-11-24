@@ -58,7 +58,6 @@ def upload_handler(path, connection, request, parameters):
     
     virtual_path = parameters['path'].strip('/')
     located_user = server.belongs_to(virtual_path)
-    print(virtual_path)
     
     username, new_cookie = server.authenticate(request) # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
@@ -78,7 +77,6 @@ def upload_handler(path, connection, request, parameters):
         raise HTTPStatusException(400)
     
     virtual_path = parameters['path'].strip('/')
-    print(virtual_path)
     located_user = server.belongs_to(virtual_path)
     
     username, new_cookie = server.authenticate(request) # authenticate
@@ -90,7 +88,7 @@ def upload_handler(path, connection, request, parameters):
         raise HTTPStatusException(404)
     
     # TODO: 允许删目录吗？目前为不允许。
-    if server.is_file(virtual_path):
+    if not server.is_file(virtual_path):
         raise HTTPStatusException(403)
     
     server.delete_file(virtual_path)
