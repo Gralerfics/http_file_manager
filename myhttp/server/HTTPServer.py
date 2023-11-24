@@ -2,9 +2,10 @@ from enum import Enum
 
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
-from ..message import URL, HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
+from ..message import URLUtils, HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
 from ..request import SimpleHTTPRequestHandler
 from ..exception import HTTPStatusException
+from ..content import HTTPResponseGenerator
 
 
 """
@@ -137,9 +138,12 @@ class HTTPServer(TCPSocketServer):
         self.server_request_handler = request_handler # request_handler shared by all connections
         self.server_request_handler.route_tree = self.route_tree
         
-        self.server_error_handler = None # error handler shared by all connections
+        self.server_error_handler = {} # error handler shared by all connections
         
         self.recv_pool = RecvPool() # each connection should have its own recv object
+    
+    def get_http_version(self):
+        return self.handle_request.http_version
     
     def send_response(self, connection, response):
         self.connection_send(connection, response.serialize())
@@ -157,10 +161,21 @@ class HTTPServer(TCPSocketServer):
         except HTTPStatusException as e:
             code = e.status_code
             desc = HTTPStatusException.status_description[code]
+            not_sent = False
             if self.server_error_handler:
-                self.server_error_handler(code, desc, connection, request)
-            else:
-                self.send_response(connection, HTTPResponseMessage.from_text(code, desc, f'{code} {desc}'))
+                if self.server_error_handler.__contains__(code):
+                    self.server_error_handler[code](desc, connection, request)
+                elif self.server_error_handler.__contains__(0):
+                    self.server_error_handler[0](code, desc, connection, request)
+                else:
+                    not_sent = True
+            if not_sent:
+                self.send_response(connection, HTTPResponseGenerator.text_html(
+                    f'{code} {desc}',
+                    version = request.request_line.version,
+                    status_code = code,
+                    status_desc = desc
+                ))
         
         if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
             self.shutdown_connection(connection)
@@ -250,14 +265,16 @@ class HTTPServer(TCPSocketServer):
             func(path, connection, request, parameters)
         """
         def wrapper(func):
-            self.route_tree.extend(URL.from_parsing(path).path_list, func, methods)
+            self.route_tree.extend(URLUtils.from_parsing(path).path_list, func, methods)
             return func
         return wrapper
 
     """
         Decorator for registering handler for error codes
     """
-    def errorhandler(self, func):
-        self.server_error_handler = func
-        return func
+    def errorhandler(self, code):
+        def wrapper(func):
+            self.server_error_handler[code] = func
+            return func
+        return wrapper
 

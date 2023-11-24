@@ -1,4 +1,4 @@
-from .message import URL, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
+from .message import URLUtils, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
 from .exception import HTTPStatusException
 
 
@@ -17,7 +17,7 @@ class SimpleHTTPRequestHandler:
             raise HTTPStatusException(405)
     
     def method_handler(self, connection, request):
-        url = URL.from_parsing(request.request_line.path)
+        url = URLUtils.from_parsing(request.request_line.path)
         path_matches, get_params = url.path_list, url.params
         
         func, arg_list = self.route_tree.search(path_matches, request.request_line.method)

@@ -7,55 +7,100 @@ import os
 from myhttp.server import HTTPServer
 from myhttp.message import HTTPResponseMessage
 from myhttp.exception import HTTPStatusException
-from myhttp.content import render_template
+from myhttp.content import HTMLUtils
+from myhttp.content import HTTPResponseGenerator
 
 
 class UserManager:
-    def __init__(self):
+    # user data format: {'<username>': info}, info = {'password': password, 'email': email, ...}
+    def __init__(self, filepath):
+        self.filepath = filepath
         self.lock = threading.Lock()
-    
-    def read(self):
-        self.lock.acquire()
+
+    def _read(self):
+        if not os.path.exists(self.filepath):
+            self._write({})
         
-        self.lock.release()
-    
-    def write(self, data):
         self.lock.acquire()
-        
-        self.lock.release()
+        try:
+            with open(self.filepath, 'rb') as file:
+                data = pickle.load(file)
+                return data if data else {}
+        finally:
+            self.lock.release()
+
+    def _write(self, data):
+        self.lock.acquire()
+        try:
+            with open(self.filepath, 'wb') as file:
+                pickle.dump(data, file)
+        finally:
+            self.lock.release()
+
+    def register(self, username, password, update_info = {}):
+        data = self._read()
+        data[username] = {'password': password, **update_info}
+        self._write(data)
     
-    def register(self, username, password):
-        pass
-    
+    def get(self, username):
+        data = self._read()
+        return data.get(username, {})
+
     def remove(self, username):
-        pass
-    
+        data = self._read()
+        if username in data:
+            del data[username]
+            self._write(data)
+
     def authenticate(self, username, password):
-        pass
+        data = self._read()
+        return data.get(username, {}).get('password') == password
 
 
 class CookieManager:
-    def __init__(self):
+    # cookie data format: {'<cookie>': info}, info = {'username': username, 'time_stamp': time_stamp, ...}
+    def __init__(self, filepath):
+        self.filepath = filepath
         self.lock = threading.Lock()
-    
-    def read(self):
-        self.lock.acquire()
+
+    def _read(self):
+        if not os.path.exists(self.filepath):
+            self._write({})
         
-        self.lock.release()
-    
-    def write(self, data):
         self.lock.acquire()
-        
-        self.lock.release()
-    
+        try:
+            with open(self.filepath, 'rb') as file:
+                data = pickle.load(file)
+                return data if data else {}
+        finally:
+            self.lock.release()
+
+    def _write(self, data):
+        self.lock.acquire()
+        try:
+            with open(self.filepath, 'wb') as file:
+                pickle.dump(data, file)
+        finally:
+            self.lock.release()
+
     def get(self, cookie):
-        pass
-    
-    def set(self, cookie):
-        pass
-    
+        data = self._read()
+        return data.get(cookie, {})
+
+    def new(self, username, time_stamp, extend_info = {}):
+        data = self._read()
+        cookie = os.urandom(16).hex()
+        while cookie in data:
+            cookie = os.urandom(16).hex()
+        data[cookie] = {'username': username, 'time_stamp': time_stamp, **extend_info}
+        self._write(data)
+        return cookie
+
     def remove(self, cookie):
-        pass
+        data = self._read()
+        if cookie in data:
+            del data[cookie]
+            self._write(data)
 
 
 """
@@ -65,16 +110,25 @@ class CookieManager:
 class FileManagerServer(HTTPServer):
     root_dir = './data/'
     res_dir = './res/'
+    reg_dir = './reg/'
     
     def __init__(self, hostname, port):
         super().__init__(hostname, port)
         
-        self.user_manager = UserManager()
-        self.cookie_manager = CookieManager()
+        self.user_manager = UserManager(self.reg_dir + 'users.pkl')
+        self.cookie_manager = CookieManager(self.reg_dir + 'cookies.pkl')
     
-    def error_page(self, code, desc):
+    def error_page(self, code, desc, request):
         # TODO: template
-        return HTTPResponseMessage.from_text(code, desc, f'<h1>Error: {code} {desc}</h1>')
+        response = HTTPResponseGenerator.text_html(
+            f'<h1>{code} {desc}</h1>',
+            version = request.request_line.version,
+            status_code = code,
+            status_desc = desc
+        )
+        if code == 401:
+            response.headers.headers['WWW-Authenticate'] = 'Basic realm="Authorization Required"'
+        return response
     
     def is_exist(self, path):
         real_path = self.root_dir + path
@@ -96,7 +150,7 @@ class FileManagerServer(HTTPServer):
     def directory_page(self, path):
         with open(self.res_dir + 'html/directory.html', 'r') as f:
             page_content = f.read()
-        page_content = render_template(page_content, {
+        page_content = HTMLUtils.render_template(page_content, {
             'path': path,
             'list_json': self.list_directory(path),
         })

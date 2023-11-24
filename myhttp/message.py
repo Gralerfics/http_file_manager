@@ -2,7 +2,7 @@ import re
 from .exception import HTTPStatusException
 
 
-class URL:
+class URLUtils:
     path_pattern = re.compile(r'/([^/?]+)')
     params_pattern = re.compile(r'\?([^/]+)')
     
@@ -106,19 +106,4 @@ class HTTPResponseMessage:
     
     def serialize(self):
         return self.serialize_header() + self.body
-
-    @classmethod
-    def from_raw_text(c, status_code, status_desc, body_raw = b''):
-        return c(
-            HTTPStatusLine('HTTP/1.1', status_code, status_desc),
-            HTTPHeaders({
-                'Content-Type': 'text/html; charset=utf-8',
-                'Content-Length': str(len(body_raw))
-            }),
-            body_raw
-        )
-
-    @classmethod
-    def from_text(c, status_code, status_desc, body_decoded = ''):
-        return c.from_raw_text(status_code, status_desc, body_decoded.encode())
 
