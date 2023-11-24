@@ -3,8 +3,8 @@ from .exception import HTTPStatusException
 
 
 class URLUtils:
-    path_pattern = re.compile(r'/([^/?]+)')
-    params_pattern = re.compile(r'\?([^/]+)')
+    path_pattern = re.compile(r'^/?([^?]*)(\?.*)?$') # separate path and params
+    params_pattern = re.compile(r'[\?&]([^=]+)=([^&]+)') # param key-value pairs
     
     def __init__(self, path_list = [], params = {}):
         self.path_list = path_list
@@ -15,17 +15,18 @@ class URLUtils:
     
     @classmethod
     def from_parsing(c, url):
-        path_matches = c.path_pattern.findall(url)
-        params_match = c.params_pattern.search(url)
+        path_match = c.path_pattern.match(url)
 
-        if params_match:
-            params_string = params_match.group(1)
-            params_list = params_string.split('&')
-            get_params = {param.split('=')[0]: param.split('=')[1] for param in params_list}
+        if path_match:
+            path = path_match.group(1)
+            path_list = [segment for segment in path.split('/') if segment]
+            
+            params_str = path_match.group(2)
+            params_dict = dict(c.params_pattern.findall(params_str)) if params_str else {}
+            
+            return c(path_list, params_dict)
         else:
-            get_params = {}
-
-        return c(path_matches, get_params)
+            raise HTTPStatusException(400) # TODO: URL parse error -> Bad Request?
 
 
 class HTTPRequestLine:

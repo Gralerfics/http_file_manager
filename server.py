@@ -1,6 +1,5 @@
 import sys
 import argparse
-import time
 
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
@@ -48,76 +47,73 @@ def api_user_register(path, connection, request, parameters):
     pass
 
 
-@server.route('/upload', methods = ['POST', 'GET', 'HEAD']) # upload
+@server.route('/upload', methods = ['POST', 'GET', 'HEAD']) # upload (/upload?path=/<user>/<dir_path>)
 def upload_handler(path, connection, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
     
-    # TODO: 上传文件, /upload?path=/<user>/...
-        # 只能更改自己的目录，所以说根目录要求能 view 但不能改喽？
-    pass
+    # TODO: 需要检查 route（是否只有 upload） 和 path（参数是否存在等） 吗？
+    if not parameters.__contains__('path'):
+        raise HTTPStatusException(400)
+    
+    virtual_path = parameters['path'].strip('/')
+    located_user = server.belongs_to(virtual_path)
+    print(virtual_path)
+    
+    username, new_cookie = server.authenticate(request) # authenticate
+    extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+    
+    # TODO
+    
+    server.send_response(connection, HTTPResponseGenerator.text_html('', request.request_line.version, extend_headers)) # 200 OK
 
 
-@server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete
+@server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_path>)
 def upload_handler(path, connection, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
     
-    # TODO: 删除文件, /delete?path=/<user>/.../xxx.xxx
-    pass
-
-
-@server.route('/', methods = ['GET', 'HEAD']) # view and downloa # TODO: 似乎访问其它目录不需要 Authorization
-def access_handler(path, connection, request, parameters):
-    path_joined = '/'.join(path)
-    username = path[0] if len(path) > 0 and server.is_exist(path_joined) and server.is_directory(path[0]) else None
+    # TODO: 需要检查 route（是否只有 delete） 和 path（参数是否存在等） 吗？
+    if not parameters.__contains__('path'):
+        raise HTTPStatusException(400)
     
-    authenicated = False
-    new_cookie = None
-
-    # there is a cookie: check if it is valid
-    if not authenicated and request.headers.is_exist('Cookie'):
-        session_id = HTTPHeaderUtils.parse_cookie(request.headers.get('Cookie')) # psarse cookie
-        cookie_info = server.cookie_manager.get(session_id) # search cookie
-        if cookie_info: # cookie exists
-            get_username = cookie_info.get('username')
-            time_stamp = cookie_info.get('time_stamp')
-            expire_time = cookie_info.get('expire_time')
-            if time_stamp + expire_time < time.time_ns():
-                server.cookie_manager.remove(session_id) # timeout
-            else:
-                if username is None or get_username == username: # valid
-                    authenicated = True
-                    
-    # no cookie or cookie is invalid: check if there is valid authorization
-    if not authenicated and request.headers.is_exist('Authorization'):
-        get_username, get_password = HTTPHeaderUtils.parse_authorization(request.headers.get('Authorization')) # parse authorization
-        
-        # TODO: 目前理解是如果用户名密码对了，但访问的目录没有权限，依然不会给 cookie
-        if server.user_manager.authenticate(get_username, get_password) and (username is None or username == get_username):
-            new_cookie = server.cookie_manager.new(get_username, time.time_ns(), 10 * 1000 * 1000 * 1000)
-            authenicated = True
+    virtual_path = parameters['path'].strip('/')
+    print(virtual_path)
+    located_user = server.belongs_to(virtual_path)
     
-    # neither is valid
-    if not authenicated:
-        raise HTTPStatusException(401)
+    username, new_cookie = server.authenticate(request) # authenticate
+    extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+    if username != located_user:
+        raise HTTPStatusException(403)
     
-    # not found
-    if not server.is_exist(path_joined):
+    if not server.is_exist(virtual_path):
         raise HTTPStatusException(404)
     
-    # check if the path is a directory or a file
-    if server.is_directory(path_joined):
-        html_body = server.directory_page(path_joined) if request.request_line.method == 'GET' else ''
-        server.send_response(connection, HTTPResponseGenerator.text_html(
-            html_body,
-            request.request_line.version,
-            extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
-        ))
-    elif server.is_file(path_joined):
-        pass # TODO
-    else:
-        raise HTTPStatusException(403) # TODO: 这是什么？会有这种情况吗？
+    # TODO: 允许删目录吗？目前为不允许。
+    if server.is_file(virtual_path):
+        raise HTTPStatusException(403)
+    
+    server.delete_file(virtual_path)
+    
+    server.send_response(connection, HTTPResponseGenerator.text_html('', request.request_line.version, extend_headers))
+
+
+@server.route('/', methods = ['GET', 'HEAD']) # view and download
+def access_handler(path, connection, request, parameters):
+    virtual_path = '/'.join(path)
+    
+    # TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
+    username, new_cookie = server.authenticate(request) # authenticate
+    extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+    
+    if not server.is_exist(virtual_path):
+        raise HTTPStatusException(404)
+    
+    if server.is_directory(virtual_path):
+        html_body = server.directory_page(virtual_path) if request.request_line.method == 'GET' else ''
+        server.send_response(connection, HTTPResponseGenerator.text_html(html_body, request.request_line.version, extend_headers))
+    else: # server.is_file(virtual_path):
+        pass # TODO: file download
 
 
 """
