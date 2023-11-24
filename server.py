@@ -101,8 +101,11 @@ def upload_handler(path, connection, request, parameters):
     server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
 
 
-@server.route('/', methods = ['GET', 'HEAD']) # view and download
+@server.route('/', methods = ['GET', 'POST', 'HEAD']) # view and download # TODO: 405 Method Not Allowed
 def access_handler(path, connection, request, parameters):
+    if not request.request_line.method == 'GET':
+        raise HTTPStatusException(405)
+    
     virtual_path = '/'.join(path)
     
     # TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
@@ -113,7 +116,7 @@ def access_handler(path, connection, request, parameters):
         raise HTTPStatusException(404)
     
     if server.is_directory(virtual_path):
-        html_body = server.directory_page(virtual_path) if request.request_line.method == 'GET' else ''
+        html_body = server.directory_page(virtual_path) # if request.request_line.method == 'GET' else ''
         server.send_response(connection, HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
     else: # server.is_file(virtual_path):
         pass # TODO: file download
