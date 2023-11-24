@@ -170,8 +170,6 @@ class HTTPServer(TCPSocketServer):
                 status_code = code,
                 status_desc = desc
             ))
-        if not request:
-            self.shutdown_connection(connection) # TODO: 如果是 handle_connection 过程中出错，那么 request 为 None，这里直接选择关闭连接
     
     """
         Handle an encapsulated request from `connection`
@@ -231,7 +229,6 @@ class HTTPServer(TCPSocketServer):
                 if target_finished:
                     if recv.state == RecvState.HEADER:
                         recv.header = target_acquired
-                        
                         try:
                             # parse request line
                             eorl = recv.header.find(b'\r\n')
@@ -248,6 +245,8 @@ class HTTPServer(TCPSocketServer):
                                 recv.set_target(RecvTargetType.LENGTH, 0, RecvState.BODY)
                         except HTTPStatusException as e:
                             self.http_status_error_handler(e, connection)
+                            self.shutdown_connection(connection) # TODO: 如果是 handle_connection 过程中出错，这里直接选择关闭连接
+                            break
                     elif recv.state == RecvState.BODY:
                         recv.body = target_acquired
                         recv.set_target(RecvTargetType.NO_TARGET)
