@@ -144,7 +144,7 @@ class HTTPServer(TCPSocketServer):
         self.recv_pool = RecvPool() # each connection should have its own recv object
     
     def get_http_version(self):
-        return self.handle_request.http_version
+        return self.server_request_handler.http_version
     
     def send_response(self, connection, response):
         self.connection_send(connection, response.serialize())
@@ -152,7 +152,7 @@ class HTTPServer(TCPSocketServer):
     def send_chunk(self, connection, chunk_raw = b''):
         self.connection_send(connection, f'{len(chunk_raw):X}\r\n'.encode() + chunk_raw + b'\r\n')
     
-    def http_status_error_handler(self, e, connection, request):
+    def http_status_error_handler(self, e, connection, request = None):
         code = e.status_code
         desc = e.status_desc
         not_sent = True
@@ -166,10 +166,12 @@ class HTTPServer(TCPSocketServer):
         if not_sent:
             self.send_response(connection, HTTPResponseGenerator.plain(
                 body = f'{code} {desc}',
-                version = request.request_line.version,
+                version = self.get_http_version() if not request else request.request_line.version,
                 status_code = code,
                 status_desc = desc
             ))
+        if not request:
+            self.shutdown_connection(connection) # TODO: 如果是 handle_connection 过程中出错，那么 request 为 None，这里直接选择关闭连接
     
     """
         Handle an encapsulated request from `connection`
@@ -191,7 +193,7 @@ class HTTPServer(TCPSocketServer):
     
     """
         Handle a recv from `connection`
-        TODO: chunked mode not tested
+        TODO: chunked mode receiving not tested
     """
     def handle_connection(self, connection):
         # fetch recv object from pool for this connection
@@ -230,19 +232,22 @@ class HTTPServer(TCPSocketServer):
                     if recv.state == RecvState.HEADER:
                         recv.header = target_acquired
                         
-                        # parse request line
-                        eorl = recv.header.find(b'\r\n')
-                        recv.request_line_encapsulated = HTTPRequestLine.from_parsing(recv.header[:eorl])
-                        
-                        # parse headers
-                        recv.headers_encapsulated = HTTPHeaders.from_parsing(recv.header[(eorl + 2):])
-                        if recv.headers_encapsulated.is_exist('Content-Length'):
-                            recv.set_target(RecvTargetType.LENGTH, int(recv.headers_encapsulated.get('Content-Length')), RecvState.BODY)
-                        elif recv.headers_encapsulated.is_exist('Transfer-Encoding'):
-                            recv.set_target(RecvTargetType.MARKER, b'\r\n', RecvState.CHUNK_SIZE)
-                        else:
-                            # TODO: no Content-Length or Transfer-Encoding, no body in default
-                            recv.set_target(RecvTargetType.LENGTH, 0, RecvState.BODY)
+                        try:
+                            # parse request line
+                            eorl = recv.header.find(b'\r\n')
+                            recv.request_line_encapsulated = HTTPRequestLine.from_parsing(recv.header[:eorl])
+                            
+                            # parse headers
+                            recv.headers_encapsulated = HTTPHeaders.from_parsing(recv.header[(eorl + 2):])
+                            if recv.headers_encapsulated.is_exist('Content-Length'):
+                                recv.set_target(RecvTargetType.LENGTH, int(recv.headers_encapsulated.get('Content-Length')), RecvState.BODY)
+                            elif recv.headers_encapsulated.is_exist('Transfer-Encoding'):
+                                recv.set_target(RecvTargetType.MARKER, b'\r\n', RecvState.CHUNK_SIZE)
+                            else:
+                                # TODO: no Content-Length or Transfer-Encoding, no body in default
+                                recv.set_target(RecvTargetType.LENGTH, 0, RecvState.BODY)
+                        except HTTPStatusException as e:
+                            self.http_status_error_handler(e, connection)
                     elif recv.state == RecvState.BODY:
                         recv.body = target_acquired
                         recv.set_target(RecvTargetType.NO_TARGET)

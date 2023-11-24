@@ -28,9 +28,9 @@ server = FileManagerServer(args.ip, args.port)
 """
     Routes
 """
-# @server.errorhandler(0)
-# def error_handler(code, desc, connection, request = None):
-#     server.send_response(connection, server.error_page(code, desc, request))
+@server.errorhandler(0)
+def error_handler(code, desc, connection, request = None):
+    server.send_response(connection, server.error_page(code, desc, request))
 
 
 @server.route('/frontend_res', methods = 'GET')
@@ -78,8 +78,6 @@ def upload_handler(path, connection, request, parameters):
 def upload_handler(path, connection, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
-    
-    print(virtual_path)
     
     if len(path) > 1 or not parameters.__contains__('path'): # TODO: 400 Bad Request?
         raise HTTPStatusException(400)
