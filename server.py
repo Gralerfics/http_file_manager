@@ -36,15 +36,38 @@ def error_handler(code, desc, connection, request):
 
 @server.route('/frontend_res', methods = 'GET')
 def resource_handler(path, connection, request, parameters):
+    # 前端请求静态资源走这里，对应实际目录 ./res
+        # 是否考虑加个 map 的注解……？
     pass
 
 
 @server.route('/backend_api/user_register', methods = 'POST')
 def api_user_register(path, connection, request, parameters):
+    # TODO: 后端 API 接口, POST, 注册用户
+        # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
     pass
 
 
-@server.route('/', methods = ['GET', 'HEAD'])
+@server.route('/upload', methods = ['POST', 'GET', 'HEAD']) # upload
+def upload_handler(path, connection, request, parameters):
+    if not request.request_line.method == 'POST':
+        raise HTTPStatusException(405)
+    
+    # TODO: 上传文件, /upload?path=/<user>/...
+        # 只能更改自己的目录，所以说根目录要求能 view 但不能改喽？
+    pass
+
+
+@server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete
+def upload_handler(path, connection, request, parameters):
+    if not request.request_line.method == 'POST':
+        raise HTTPStatusException(405)
+    
+    # TODO: 删除文件, /delete?path=/<user>/.../xxx.xxx
+    pass
+
+
+@server.route('/', methods = ['GET', 'HEAD']) # view and downloa # TODO: 似乎访问其它目录不需要 Authorization
 def access_handler(path, connection, request, parameters):
     path_joined = '/'.join(path)
     username = path[0] if len(path) > 0 and server.is_exist(path_joined) and server.is_directory(path[0]) else None
@@ -52,7 +75,7 @@ def access_handler(path, connection, request, parameters):
     authenicated = False
     new_cookie = None
 
-    # 有 Cookie 先看看有没有用
+    # there is a cookie: check if it is valid
     if not authenicated and request.headers.is_exist('Cookie'):
         session_id = HTTPHeaderUtils.parse_cookie(request.headers.get('Cookie')) # psarse cookie
         cookie_info = server.cookie_manager.get(session_id) # search cookie
@@ -66,7 +89,7 @@ def access_handler(path, connection, request, parameters):
                 if username is None or get_username == username: # valid
                     authenicated = True
                     
-    # Cookie 无效的话再看看 Authorization
+    # no cookie or cookie is invalid: check if there is valid authorization
     if not authenicated and request.headers.is_exist('Authorization'):
         get_username, get_password = HTTPHeaderUtils.parse_authorization(request.headers.get('Authorization')) # parse authorization
         
@@ -74,16 +97,16 @@ def access_handler(path, connection, request, parameters):
         if server.user_manager.authenticate(get_username, get_password) and (username is None or username == get_username):
             new_cookie = server.cookie_manager.new(get_username, time.time_ns(), 10 * 1000 * 1000 * 1000)
             authenicated = True
-            
-    # 都没有，返回 401
+    
+    # neither is valid
     if not authenicated:
         raise HTTPStatusException(401)
     
-    # 有权限，但不存在
+    # not found
     if not server.is_exist(path_joined):
         raise HTTPStatusException(404)
     
-    # 判断是文件还是目录
+    # check if the path is a directory or a file
     if server.is_directory(path_joined):
         html_body = server.directory_page(path_joined) if request.request_line.method == 'GET' else ''
         server.send_response(connection, HTTPResponseGenerator.text_html(
@@ -94,7 +117,7 @@ def access_handler(path, connection, request, parameters):
     elif server.is_file(path_joined):
         pass # TODO
     else:
-        raise HTTPStatusException(403) # TODO: 那是什么？会有这种情况吗？
+        raise HTTPStatusException(403) # TODO: 这是什么？会有这种情况吗？
 
 
 """

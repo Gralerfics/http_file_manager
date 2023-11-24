@@ -150,6 +150,7 @@ class FileManagerServer(HTTPServer):
             return json.dumps([entry.name for entry in it])
     
     def directory_page(self, path):
+        # TODO: template, 要求有 ./ ../ 和链接, 要有 400(?), 404(ok), 405(ok)
         with open(self.res_dir + 'html/directory.html', 'r') as f:
             page_content = f.read()
         page_content = HTMLUtils.render_template(page_content, {
