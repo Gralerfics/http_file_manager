@@ -180,6 +180,11 @@ class FileManagerServer(HTTPServer):
             # if not authenicated, raise 401, no need to return
             # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization
     
+    def upload_file(self, virtual_path, request):
+        real_path = self.root_dir + virtual_path
+        # with open(real_path + , 'wb') as f:
+        #     f.write(request.body)
+    
     def delete_file(self, virtual_path):
         real_path = self.root_dir + virtual_path
         os.remove(real_path)
@@ -188,11 +193,11 @@ class FileManagerServer(HTTPServer):
         Pages
     """
     
-    def error_page(self, code, desc, request):
+    def error_page(self, code, desc, request = None):
         # TODO: template
         response = HTTPResponseGenerator.text_html(
             body = f'<h1>{code} {desc}</h1>',
-            version = request.request_line.version,
+            version = 'HTTP/1.1' if not request else request.request_line.version,
             status_code = code,
             status_desc = desc
         )

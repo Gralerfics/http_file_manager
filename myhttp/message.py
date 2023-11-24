@@ -42,6 +42,8 @@ class HTTPRequestLine:
     def from_parsing(c, line):
         # e.g. b'GET / HTTP/1.1'
         splitted = line.decode().split(' ')
+        if len(splitted) != 3:
+            raise HTTPStatusException(400)
         return c(splitted[0], splitted[1], splitted[2])
 
 

@@ -152,6 +152,25 @@ class HTTPServer(TCPSocketServer):
     def send_chunk(self, connection, chunk_raw = b''):
         self.connection_send(connection, f'{len(chunk_raw):X}\r\n'.encode() + chunk_raw + b'\r\n')
     
+    def http_status_error_handler(self, e, connection, request):
+        code = e.status_code
+        desc = e.status_desc
+        not_sent = True
+        if self.server_error_handler:
+            if self.server_error_handler.__contains__(code):
+                self.server_error_handler[code](desc, connection, request)
+                not_sent = False
+            elif self.server_error_handler.__contains__(0):
+                self.server_error_handler[0](code, desc, connection, request)
+                not_sent = False
+        if not_sent:
+            self.send_response(connection, HTTPResponseGenerator.plain(
+                body = f'{code} {desc}',
+                version = request.request_line.version,
+                status_code = code,
+                status_desc = desc
+            ))
+    
     """
         Handle an encapsulated request from `connection`
     """
@@ -165,23 +184,7 @@ class HTTPServer(TCPSocketServer):
         try:
             self.server_request_handler.handle(connection, request)
         except HTTPStatusException as e:
-            code = e.status_code
-            desc = e.status_desc
-            not_sent = False
-            if self.server_error_handler:
-                if self.server_error_handler.__contains__(code):
-                    self.server_error_handler[code](desc, connection, request)
-                elif self.server_error_handler.__contains__(0):
-                    self.server_error_handler[0](code, desc, connection, request)
-                else:
-                    not_sent = True
-            if not_sent:
-                self.send_response(connection, HTTPResponseGenerator.text_html(
-                    body = f'{code} {desc}',
-                    version = request.request_line.version,
-                    status_code = code,
-                    status_desc = desc
-                ))
+            self.http_status_error_handler(e, connection, request)
         
         if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':
             self.shutdown_connection(connection)

@@ -65,11 +65,31 @@ class HTTPHeaderUtils:
             elif len(pair) != 0:
                 raise HTTPStatusException(400)
         return cookies
+    
+    @staticmethod
+    def parse_content_type(value):
+        """
+            [Format] Content-Type: <type>/<subtype>; boundary=<boundary> TODO: 看文档还有什么
+            [Example Value] multipart/form-data; boundary=327c6dfd4efcbc1a8cb73dfbd452c924
+            [Return] TODO
+        """
+        pass
 
 
 class HTTPResponseGenerator:
     def __init__(self):
         pass
+    
+    @staticmethod
+    def plain(body = '', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
+        return HTTPResponseMessage(
+            HTTPStatusLine(version, status_code, status_desc),
+            HTTPHeaders({
+                'Content-Length': str(len(body)),
+                **extend_headers
+            }),
+            body.encode()
+        )
     
     @staticmethod
     def text_html(body = '', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):

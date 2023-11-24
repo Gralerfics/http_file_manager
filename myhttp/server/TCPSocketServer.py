@@ -7,7 +7,7 @@ from ..log import log_print, LogLevel
 
 class TCPSocketServer:
     backlog_size = 10
-    select_interval = 0.2
+    select_interval = 0.05
     
     def __init__(self, hostname, port):
         self.hostname = hostname

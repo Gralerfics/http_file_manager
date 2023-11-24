@@ -22,15 +22,15 @@ args = cli_parser()
 server = FileManagerServer(args.ip, args.port)
 
 # TODO: to be removed
-server.cookie_manager._write({})
+# server.cookie_manager._write({})
 
 
 """
     Routes
 """
-@server.errorhandler(0)
-def error_handler(code, desc, connection, request):
-    server.send_response(connection, server.error_page(code, desc, request))
+# @server.errorhandler(0)
+# def error_handler(code, desc, connection, request = None):
+#     server.send_response(connection, server.error_page(code, desc, request))
 
 
 @server.route('/frontend_res', methods = 'GET')
@@ -60,8 +60,16 @@ def upload_handler(path, connection, request, parameters):
     
     username, new_cookie = server.authenticate(request) # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+    if username != located_user:
+        raise HTTPStatusException(403)
     
-    # TODO
+    if not server.is_exist(virtual_path):
+        raise HTTPStatusException(404)
+    
+    if not server.is_directory(virtual_path): # TODO: 必须为目录吧。
+        raise HTTPStatusException(403)
+    
+    server.upload_file(virtual_path, request)
     
     server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers)) # 200 OK
 
@@ -70,6 +78,8 @@ def upload_handler(path, connection, request, parameters):
 def upload_handler(path, connection, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
+    
+    print(virtual_path)
     
     if len(path) > 1 or not parameters.__contains__('path'): # TODO: 400 Bad Request?
         raise HTTPStatusException(400)
@@ -85,8 +95,7 @@ def upload_handler(path, connection, request, parameters):
     if not server.is_exist(virtual_path):
         raise HTTPStatusException(404)
     
-    # TODO: 允许删目录吗？目前为不允许。
-    if not server.is_file(virtual_path):
+    if not server.is_file(virtual_path): # TODO: 允许删目录吗？目前为不允许。
         raise HTTPStatusException(403)
     
     server.delete_file(virtual_path)
