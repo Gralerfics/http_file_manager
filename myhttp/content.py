@@ -33,7 +33,7 @@ class HTTPHeaderUtils:
     def parse_authorization(value):
         # e.g. Basic MTIxMTAxMDQ6MTIzNDU2, return (username, decrypted password)
         splited = value.split(' ')
-        if splited[0] == 'Basic':
+        if splited[0].lower() == 'basic':
             up_splited = base64.b64decode(splited[1]).decode().split(':')
             if len(up_splited) == 2:
                 return tuple(up_splited)
@@ -46,7 +46,7 @@ class HTTPHeaderUtils:
     def parse_cookie(value):
         # e.g. session-id=[id]
         splited = value.split('=')
-        if splited[0] == 'session-id':
+        if splited[0].lower() == 'session-id':
             return splited[1]
         else:
             raise HTTPStatusException(400)

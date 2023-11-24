@@ -101,6 +101,7 @@ class RouteTree:
         self.tree = RouteTree.Node()
 
     def extend(self, path_list, func, methods):
+        # TODO: path is case-insensitive?
         node = self.tree
         for path in path_list:
             if not node.children.__contains__(path):
@@ -177,7 +178,7 @@ class HTTPServer(TCPSocketServer):
                     status_desc = desc
                 ))
         
-        if request.headers.headers.__contains__('Connection') and request.headers.headers['Connection'] == 'close':
+        if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':
             self.shutdown_connection(connection)
     
     """
@@ -227,9 +228,9 @@ class HTTPServer(TCPSocketServer):
                         
                         # parse headers
                         recv.headers_encapsulated = HTTPHeaders.from_parsing(recv.header[(eorl + 2):])
-                        if recv.headers_encapsulated.headers.__contains__('Content-Length'):
-                            recv.set_target(RecvTargetType.LENGTH, int(recv.headers_encapsulated.headers['Content-Length']), RecvState.BODY)
-                        elif recv.headers_encapsulated.headers.__contains__('Transfer-Encoding'):
+                        if recv.headers_encapsulated.is_exist('Content-Length'):
+                            recv.set_target(RecvTargetType.LENGTH, int(recv.headers_encapsulated.get('Content-Length')), RecvState.BODY)
+                        elif recv.headers_encapsulated.is_exist('Transfer-Encoding'):
                             recv.set_target(RecvTargetType.MARKER, b'\r\n', RecvState.CHUNK_SIZE)
                         else:
                             # TODO: no Content-Length or Transfer-Encoding, no body in default

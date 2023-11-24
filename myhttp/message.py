@@ -56,7 +56,7 @@ class HTTPStatusLine:
     @classmethod
     def from_parsing(c, line):
         # e.g. b'HTTP/1.1 200 OK'
-        splitted = line.decode('utf-8').split(' ')
+        splitted = line.decode().split(' ')
         try:
             stat_code = int(splitted[1])
         except ValueError:
@@ -68,18 +68,35 @@ class HTTPHeaders:
     def __init__(self, headers = {}):
         self.headers: dict = headers
     
+    def is_exist(self, key):
+        # Key is case-insensitive
+        key_lower = key.lower()
+        return key_lower in self.headers
+    
+    def get(self, key):
+        # Key is case-insensitive
+        key_lower = key.lower()
+        return self.headers.get(key_lower, None)
+
+    def set(self, key, value):
+        # Key is case-insensitive
+        key_lower = key.lower()
+        self.headers[key_lower] = value
+    
     def serialize(self):
         return ''.join([f'{key}: {value}\r\n' for key, value in self.headers.items()]).encode()
     
     @classmethod
     def from_parsing(c, lines):
-        # TODO: 是否会有重复的标头 key？应该没有吧。
         headers = {}
         splitted = lines.split(b'\r\n')
         for line in splitted:
-            splitted = line.decode('utf-8').split(': ')
+            splitted = line.decode().split(': ')
             if len(splitted) == 2:
-                headers[splitted[0]] = splitted[1]
+                # Key is case-insensitive, value is not certain
+                key_lower = splitted[0].lower().strip()
+                value = splitted[1].strip()
+                headers[key_lower] = value
             elif len(line) != 0:
                 raise HTTPStatusException(400)
         return c(headers)

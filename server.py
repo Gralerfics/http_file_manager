@@ -36,6 +36,11 @@ def resource_handler(path, connection, request, parameters):
     pass
 
 
+@server.route('/backend_api/user_register', methods = 'POST')
+def api_user_register(path, connection, request, parameters):
+    pass
+
+
 @server.route('/', methods = ['GET', 'HEAD'])
 def access_handler(path, connection, request, parameters):
     path_joined = '/'.join(path)
@@ -45,8 +50,8 @@ def access_handler(path, connection, request, parameters):
     new_cookie = None
 
     # 有 Cookie 先看看有没有用
-    if not authenicated and request.headers.headers.__contains__('Cookie'):
-        session_id = HTTPHeaderUtils.parse_cookie(request.headers.headers['Cookie']) # psarse cookie
+    if not authenicated and request.headers.is_exist('Cookie'):
+        session_id = HTTPHeaderUtils.parse_cookie(request.headers.get('Cookie')) # psarse cookie
         cookie_info = server.cookie_manager.get(session_id) # search cookie
         if cookie_info: # cookie exists
             get_username = cookie_info.get('username')
@@ -59,8 +64,8 @@ def access_handler(path, connection, request, parameters):
                     authenicated = True
                     
     # Cookie 无效的话再看看 Authorization
-    if not authenicated and request.headers.headers.__contains__('Authorization'):
-        get_username, get_password = HTTPHeaderUtils.parse_authorization(request.headers.headers['Authorization']) # parse authorization
+    if not authenicated and request.headers.is_exist('Authorization'):
+        get_username, get_password = HTTPHeaderUtils.parse_authorization(request.headers.get('Authorization')) # parse authorization
         
         # TODO: 目前理解是如果用户名密码对了，但访问的目录没有权限，依然不会给 cookie
         if server.user_manager.authenticate(get_username, get_password) and (username is None or username == get_username):
@@ -87,12 +92,6 @@ def access_handler(path, connection, request, parameters):
         pass # TODO
     else:
         raise HTTPStatusException(403) # TODO: 那是什么？会有这种情况吗？
-
-
-# @server.route('/backend_api/user_register', method = 'POST', params = True)
-# def api_user_register(connection, request, parameters = None):
-#     print('register')
-#     pass
 
 
 """

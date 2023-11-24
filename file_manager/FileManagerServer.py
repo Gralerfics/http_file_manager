@@ -129,7 +129,7 @@ class FileManagerServer(HTTPServer):
             status_desc = desc
         )
         if code == 401:
-            response.headers.headers['WWW-Authenticate'] = 'Basic realm="Authorization Required"'
+            response.headers.set('WWW-Authenticate', 'Basic realm="Authorization Required"')
         return response
     
     def is_exist(self, path):
