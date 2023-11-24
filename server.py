@@ -51,41 +51,49 @@ def access_handler(path, connection, request, parameters):
     
     authenicated = False
     new_cookie = None
-    if request.headers.headers.__contains__('Cookie'):
-        # TODO: expire time
-        session_id = HTTPHeaderUtils.parse_cookie(request.headers.headers['Cookie'])
-        get_username = server.cookie_manager.get(session_id).get('username')
-        print(session_id, get_username)
-        if username is None or get_username == username:
-            authenicated = True
-    elif request.headers.headers.__contains__('Authorization'):
-        get_username, get_password = HTTPHeaderUtils.parse_authorization(request.headers.headers['Authorization'])
-        print(get_username, get_password)
+
+    # 有 Cookie 先看看有没有用
+    if not authenicated and request.headers.headers.__contains__('Cookie'):
+        session_id = HTTPHeaderUtils.parse_cookie(request.headers.headers['Cookie']) # parse cookie
+        cookie_info = server.cookie_manager.get(session_id) # search cookie
+        if cookie_info: # cookie exists
+            get_username = cookie_info.get('username')
+            time_stamp = cookie_info.get('time_stamp')
+            expire_time = cookie_info.get('expire_time')
+            if time_stamp + expire_time < time.time_ns():
+                server.cookie_manager.remove(session_id) # timeout
+            else:
+                if username is None or get_username == username: # valid
+                    authenicated = True
+                    
+    # Cookie 无效的话再看看 Authorization
+    if not authenicated and request.headers.headers.__contains__('Authorization'):
+        get_username, get_password = HTTPHeaderUtils.parse_authorization(request.headers.headers['Authorization']) # parse authorization
+        
         # TODO: 目前理解是如果用户名密码对了，但访问的目录没有权限，依然不会给 cookie
         if server.user_manager.authenticate(get_username, get_password) and (username is None or username == get_username):
-            new_cookie = server.cookie_manager.new(get_username, time.time_ns())
+            new_cookie = server.cookie_manager.new(get_username, time.time_ns(), 10 * 1000 * 1000 * 1000)
             authenicated = True
-    else:
-        # access without authentication
+            
+    # 都没有，返回 401
+    if not authenicated:
         raise HTTPStatusException(401)
     
-    if authenicated:
-        if not server.is_exist(path_joined):
-            raise HTTPStatusException(404)
-        
-        if server.is_directory(path_joined):
-            html_body = server.directory_page(path_joined) if request.request_line.method == 'GET' else ''
-            server.send_response(connection, HTTPResponseGenerator.text_html(
-                html_body,
-                request.request_line.version,
-                extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
-            ))
-        elif server.is_file(path_joined):
-            pass # TODO
-        else:
-            raise HTTPStatusException(403) # TODO: 那是什么？会有这种情况吗？
+    # 有权限，返回页面
+    if not server.is_exist(path_joined):
+        raise HTTPStatusException(404)
+    
+    if server.is_directory(path_joined):
+        html_body = server.directory_page(path_joined) if request.request_line.method == 'GET' else ''
+        server.send_response(connection, HTTPResponseGenerator.text_html(
+            html_body,
+            request.request_line.version,
+            extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        ))
+    elif server.is_file(path_joined):
+        pass # TODO
     else:
-        raise HTTPStatusException(401)
+        raise HTTPStatusException(403) # TODO: 那是什么？会有这种情况吗？
 
 
 # @server.route('/backend_api/user_register', method = 'POST', params = True)

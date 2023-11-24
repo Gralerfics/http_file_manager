@@ -44,7 +44,7 @@ class UserManager:
     
     def get(self, username):
         data = self._read()
-        return data.get(username, {})
+        return data.get(username, None)
 
     def remove(self, username):
         data = self._read()
@@ -59,6 +59,8 @@ class UserManager:
 
 class CookieManager:
     # cookie data format: {'<cookie>': info}, info = {'username': username, 'time_stamp': time_stamp, ...}
+    default_expire_time = 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
+    
     def __init__(self, filepath):
         self.filepath = filepath
         self.lock = threading.Lock()
@@ -85,14 +87,14 @@ class CookieManager:
 
     def get(self, cookie):
         data = self._read()
-        return data.get(cookie, {})
+        return data.get(cookie, None)
 
-    def new(self, username, time_stamp, extend_info = {}):
+    def new(self, username, time_stamp, expire_time = default_expire_time, extend_info = {}):
         data = self._read()
         cookie = os.urandom(16).hex()
         while cookie in data:
             cookie = os.urandom(16).hex()
-        data[cookie] = {'username': username, 'time_stamp': time_stamp, **extend_info}
+        data[cookie] = {'username': username, 'time_stamp': time_stamp, 'expire_time': expire_time, **extend_info}
         self._write(data)
         return cookie
 
