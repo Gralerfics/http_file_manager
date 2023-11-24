@@ -29,21 +29,25 @@ def error_handler(code, desc, connection, request):
     server.send_response(connection, server.error_page(code, desc))
 
 
-@server.route('/backend_api/list_directory', methods = 'GET')
-def api_list_directory(path, connection, request, parameters):
-    # TODO: authentication
+# @server.route('/backend_api/list_directory', methods = 'GET')
+# def api_list_directory(path, connection, request, parameters):
+#     # TODO: authentication
     
-    path_joined = '/'.join(path)
-    print(path_joined)
+#     path_joined = '/'.join(path)
     
-    if not server.is_exist(path_joined):
-        raise HTTPStatusException(404)
+#     if not server.is_exist(path_joined):
+#         raise HTTPStatusException(404)
     
-    if not server.is_directory(path_joined):
-        raise HTTPStatusException(400) # the parameter `path` must be a directory
+#     if not server.is_directory(path_joined):
+#         raise HTTPStatusException(400) # the parameter `path` must be a directory
     
-    result = server.list_directory(path_joined)
-    server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', result))
+#     result = server.list_directory(path_joined)
+#     server.send_response(connection, HTTPResponseMessage.from_text(200, 'OK', result))
+
+
+@server.route('/frontend_res', methods = 'GET')
+def resource_handler(path, connection, request, parameters):
+    pass
 
 
 @server.route('/', methods = ['GET', 'HEAD'])
@@ -51,7 +55,6 @@ def access_handler(path, connection, request, parameters):
     # TODO: authentication, 以及 401 和 404 哪个先？401 吧？
     
     path_joined = '/'.join(path)
-    print(path_joined)
     
     if not server.is_exist(path_joined):
         raise HTTPStatusException(404)

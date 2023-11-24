@@ -7,6 +7,7 @@ import os
 from myhttp.server import HTTPServer
 from myhttp.message import HTTPResponseMessage
 from myhttp.exception import HTTPStatusException
+from myhttp.content import render_template
 
 
 class UserManager:
@@ -62,7 +63,8 @@ class CookieManager:
         all the `path` (`<user>/<path>`) in this class is relative to `root_directory`
 """
 class FileManagerServer(HTTPServer):
-    root_directory = './data/'
+    root_dir = './data/'
+    res_dir = './res/'
     
     def __init__(self, hostname, port):
         super().__init__(hostname, port)
@@ -75,25 +77,28 @@ class FileManagerServer(HTTPServer):
         return HTTPResponseMessage.from_text(code, desc, f'<h1>Error: {code} {desc}</h1>')
     
     def is_exist(self, path):
-        real_path = self.root_directory + path
+        real_path = self.root_dir + path
         return os.path.exists(real_path)
     
     def is_directory(self, path):
-        real_path = self.root_directory + path
+        real_path = self.root_dir + path
         return os.path.isdir(real_path)
     
     def is_file(self, path):
-        real_path = self.root_directory + path
+        real_path = self.root_dir + path
         return os.path.isfile(real_path)
     
     def list_directory(self, path):
-        real_path = self.root_directory + path
+        real_path = self.root_dir + path
         with os.scandir(real_path) as it:
             return json.dumps([entry.name for entry in it])
     
     def directory_page(self, path):
-        real_path = self.root_directory + path
-        with open('./res/directory.html', 'r') as f:
+        with open(self.res_dir + 'html/directory.html', 'r') as f:
             page_content = f.read()
+        page_content = render_template(page_content, {
+            'path': path,
+            'list_json': self.list_directory(path),
+        })
         return page_content
 
