@@ -65,7 +65,7 @@ def upload_handler(path, connection, request, parameters):
     
     # TODO
     
-    server.send_response(connection, HTTPResponseGenerator.text_html('', request.request_line.version, extend_headers)) # 200 OK
+    server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers)) # 200 OK
 
 
 @server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_path>)
@@ -95,7 +95,7 @@ def upload_handler(path, connection, request, parameters):
     
     server.delete_file(virtual_path)
     
-    server.send_response(connection, HTTPResponseGenerator.text_html('', request.request_line.version, extend_headers))
+    server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
 
 
 @server.route('/', methods = ['GET', 'HEAD']) # view and download
@@ -111,7 +111,7 @@ def access_handler(path, connection, request, parameters):
     
     if server.is_directory(virtual_path):
         html_body = server.directory_page(virtual_path) if request.request_line.method == 'GET' else ''
-        server.send_response(connection, HTTPResponseGenerator.text_html(html_body, request.request_line.version, extend_headers))
+        server.send_response(connection, HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
     else: # server.is_file(virtual_path):
         pass # TODO: file download
 

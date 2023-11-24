@@ -177,7 +177,7 @@ class HTTPServer(TCPSocketServer):
                     not_sent = True
             if not_sent:
                 self.send_response(connection, HTTPResponseGenerator.text_html(
-                    f'{code} {desc}',
+                    body = f'{code} {desc}',
                     version = request.request_line.version,
                     status_code = code,
                     status_desc = desc

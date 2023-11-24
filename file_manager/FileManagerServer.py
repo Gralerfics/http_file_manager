@@ -188,7 +188,7 @@ class FileManagerServer(HTTPServer):
     def error_page(self, code, desc, request):
         # TODO: template
         response = HTTPResponseGenerator.text_html(
-            f'<h1>{code} {desc}</h1>',
+            body = f'<h1>{code} {desc}</h1>',
             version = request.request_line.version,
             status_code = code,
             status_desc = desc
