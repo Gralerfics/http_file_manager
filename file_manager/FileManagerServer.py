@@ -121,16 +121,23 @@ class FileManagerServer(HTTPServer):
         Information
     """
     
-    def is_exist(self, virtual_path):
-        real_path = self.root_dir + virtual_path
+    def get_path(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        return prefix + virtual_path
+    
+    def is_exist(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        real_path = prefix + virtual_path
         return os.path.exists(real_path)
     
-    def is_directory(self, virtual_path):
-        real_path = self.root_dir + virtual_path
+    def is_directory(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        real_path = prefix + virtual_path
         return os.path.isdir(real_path)
     
-    def is_file(self, virtual_path):
-        real_path = self.root_dir + virtual_path
+    def is_file(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        real_path = prefix + virtual_path
         return os.path.isfile(real_path)
 
     def belongs_to(self, virtual_path):
@@ -188,7 +195,7 @@ class FileManagerServer(HTTPServer):
         os.remove(real_path)
     
     """
-        Pages
+        Pages & Resources
     """
     
     def error_page(self, code, desc, request = None):

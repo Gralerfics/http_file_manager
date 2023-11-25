@@ -34,13 +34,19 @@ def error_handler(code, desc, connection_handler):
     connection_handler.send_response(server.error_page(code, desc, request))
 
 
-@server.route('/frontend_res', methods = 'GET')
+@server.route('/frontend_res', methods = 'GET') # frontend_res (/frontend_res/<file_path>)
 def resource_handler(path, parameters, connection_handler):
     request = connection_handler.last_request
     
-    # 前端请求静态资源走这里，对应实际目录 ./res
-        # 是否考虑加个 map 的注解……？
-    pass
+    virtual_path = '/'.join(path)                                                       # target path (virtual)
+    
+    if not server.is_exist(virtual_path, resourse = True):                              # path not exist
+        raise HTTPStatusException(404)
+    
+    connection_handler.send_response(HTTPResponseGenerator.by_file_path(
+        file_path = server.get_path(virtual_path, resourse = True),
+        version = request.request_line.version
+    ))
 
 
 @server.route('/backend_api/user_register', methods = 'POST')
@@ -142,24 +148,22 @@ def access_handler(path, parameters, connection_handler):
             extend_headers = extend_headers
         ))
     else: # server.is_file(virtual_path):
-        file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
-        content_disposition = 'inline'
-        if not file_type:
-            file_type = 'application/octet-stream'
-            content_disposition = 'attachment'
-        
-        extend_headers['Content-Disposition'] = f'{content_disposition}; filename="{path[-1]}"'
         if parameters.get('chunked', '0') == '0':
             # direct download
-            with open(server.root_dir + virtual_path, 'rb') as f:
-                connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-                    body = f.read(),
-                    content_type = file_type,
-                    version = request.request_line.version,
-                    extend_headers = extend_headers
-                ))
+            connection_handler.send_response(HTTPResponseGenerator.by_file_path(
+                file_path = server.root_dir + virtual_path,
+                version = request.request_line.version,
+                extend_headers = extend_headers
+            ))
         else:
             # chunked download
+            file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
+            content_disposition = 'inline'
+            if not file_type:
+                file_type = 'application/octet-stream'
+                content_disposition = 'attachment'
+            
+            extend_headers['Content-Disposition'] = f'{content_disposition}; filename="{path[-1]}"'
             extend_headers['Transfer-Encoding'] = 'chunked'
             connection_handler.send(HTTPResponseGenerator.by_content_type(
                 content_type = file_type,

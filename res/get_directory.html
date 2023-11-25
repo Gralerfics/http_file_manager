@@ -20,15 +20,8 @@
 
     <script>
         var list = {{ list_json }}
-
-        var pathInput = document.getElementById('pathInput');
-        var directoryList = document.getElementById('directoryList');
-
-        list.forEach(function(item) {
-            var listItem = document.createElement('li');
-            listItem.textContent = item;
-            directoryList.appendChild(listItem);
-        });
+        var path = "{{ path }}"
     </script>
+    <script src="/frontend_res/js/get_directory.js"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 import re
 import os
 import base64
+import mimetypes
 
 from .message import HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
 from .exception import HTTPStatusException
@@ -11,16 +12,10 @@ class HTMLUtils:
         pass
     
     @staticmethod
-    def render_template(template, variables = {}, pattern = r'{{\s*([^{}|]+)\s*(?:\|\s*safe\s*)?}}'):
+    def render_template(template, variables = {}, pattern = r'{{\s*([^{}]+)\s*}}'): # r'{{\s*([^{}|]+)\s*(?:\|\s*safe\s*)?}}'
         def replace(match):
             variable = match.group(1).strip()
-            
-            value = variables.get(variable, f'{{{{ {variable} }}}}')
-            is_safe = '|safe' in match.group(0)
-            if is_safe:
-                value = str(value)
-            
-            return value
+            return str(variables.get(variable, f'{{{{ {variable} }}}}'))
         
         pattern_compiled = re.compile(pattern)
         return pattern_compiled.sub(replace, template)
@@ -105,6 +100,27 @@ class HTTPResponseGenerator:
             HTTPHeaders({
                 'Content-Type': content_type,
                 'Content-Length': str(len(body)),
+                **extend_headers
+            }),
+            body
+        )
+    
+    @staticmethod
+    def by_file_path(file_path, use_mime = True, version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
+        with open(file_path, 'rb') as f:
+            body = f.read()
+        if use_mime:
+            content_type = mimetypes.guess_type(file_path)[0]
+            content_disposition = 'inline'
+        else:
+            content_type = 'application/octet-stream'
+            content_disposition = 'attachment'
+        return HTTPResponseMessage(
+            HTTPStatusLine(version, status_code, status_desc),
+            HTTPHeaders({
+                'Content-Type': content_type,
+                'Content-Length': str(len(body)),
+                'Content-Disposition': f'{content_disposition}; filename="{os.path.basename(file_path)}"',
                 **extend_headers
             }),
             body
