@@ -1,5 +1,6 @@
 import sys
 import argparse
+import mimetypes
 
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
@@ -141,13 +142,19 @@ def access_handler(path, parameters, connection_handler):
             extend_headers = extend_headers
         ))
     else: # server.is_file(virtual_path):
-        extend_headers['Content-Disposition'] = f'attachment; filename="{path[-1]}"'
+        file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
+        content_disposition = 'inline'
+        if not file_type:
+            file_type = 'application/octet-stream'
+            content_disposition = 'attachment'
+        
+        extend_headers['Content-Disposition'] = f'{content_disposition}; filename="{path[-1]}"'
         if parameters.get('chunked', '0') == '0':
             # direct download
             with open(server.root_dir + virtual_path, 'rb') as f:
                 connection_handler.send_response(HTTPResponseGenerator.by_content_type(
                     body = f.read(),
-                    content_type = 'application/octet-stream',
+                    content_type = file_type,
                     version = request.request_line.version,
                     extend_headers = extend_headers
                 ))
@@ -155,7 +162,7 @@ def access_handler(path, parameters, connection_handler):
             # chunked download
             extend_headers['Transfer-Encoding'] = 'chunked'
             connection_handler.send(HTTPResponseGenerator.by_content_type(
-                content_type = 'application/octet-stream',
+                content_type = file_type,
                 version = request.request_line.version,
                 extend_headers = extend_headers
             ).serialize_header()) # only header

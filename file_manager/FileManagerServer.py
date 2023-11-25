@@ -1,4 +1,3 @@
-import mimetypes
 import threading
 import pickle
 import json
