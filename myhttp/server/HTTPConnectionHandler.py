@@ -50,6 +50,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
     def __init__(self, connection, server):
         super().__init__(connection, server)
         self.recv_buffer_manager = RecvBufferManager()
+        self.last_request = None # each connection will only handle one request at a time
     
     def send_response(self, response):
         self.send(response.serialize())
@@ -61,7 +62,9 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         Handle HTTP status errors from `connection`
     """
     def error_handler(self, code, desc, request = None):
-        if not self.server.http_error_handler(code, desc, request, self):
+        self.last_request = request
+        
+        if not self.server.http_error_handler(code, desc, self):
             self.send_response(self.connection, HTTPResponseGenerator.text_plain( # TODO
                 body = f'{code} {desc}',
                 version = self.http_version if not request else request.request_line.version,
@@ -73,6 +76,8 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         Handle a single encapsulated request from `connection`
     """
     def request_handler(self, request):
+        self.last_request = request
+        
         # add default Connection header
         if not request.headers.is_exist('Connection'):
             if self.http_version == 'HTTP/1.1':
@@ -82,7 +87,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         
         # handle request
         try:
-            self.server.http_route_handler(request, self)
+            self.server.http_route_handler(self)
         except HTTPStatusException as e:
             self.error_handler(e.status_code, e.status_desc, request)
         

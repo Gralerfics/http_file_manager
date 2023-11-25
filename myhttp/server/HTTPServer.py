@@ -57,25 +57,25 @@ class HTTPServer(TCPSocketServer):
         HTTP Error Handler
             code <- int
             desc <- str
-            request <- HTTPRequest
             connection_handler <- HTTPConnectionHandler
     """
-    def http_error_handler(self, code, desc, request, connection_handler):
+    def http_error_handler(self, code, desc, connection_handler):
         if self.http_error_handlers:
             if self.http_error_handlers.__contains__(code):
-                self.http_error_handlers[code](desc, connection_handler, request)
+                self.http_error_handlers[code](desc, connection_handler)
                 return True
             elif self.http_error_handlers.__contains__(0):
-                self.http_error_handlers[0](code, desc, connection_handler, request)
+                self.http_error_handlers[0](code, desc, connection_handler)
                 return True
         return False
     
     """
         HTTP Route Handler
-            request <- HTTPRequest
             connection_handler <- HTTPConnectionHandler
     """
-    def http_route_handler(self, request, connection_handler):
+    def http_route_handler(self, connection_handler):
+        request = connection_handler.last_request
+        
         if not request.request_line.method in self.supported_methods:
             raise HTTPStatusException(405)
         
@@ -88,22 +88,20 @@ class HTTPServer(TCPSocketServer):
         
         args_grp = {}
         args_grp['path'] = arg_list
-        args_grp['connection_handler'] = connection_handler
-        args_grp['request'] = request
         args_grp['parameters'] = get_params
+        args_grp['connection_handler'] = connection_handler
         
         func(**args_grp)
     
     """
         Decorator for registering handler for specific path and method
             path <- ['part', 'of', 'GET', 'path', 'without', 'matched', 'route']
-            connection <- connection object
-            request <- request object
             parameters <- dict of GET parameters
+            connection_handler <- connection handler object
     """
-    def route(self, path, methods = 'GET'): # decorator allowing user to register handler for specific path and method
+    def route(self, path, methods = 'GET'):
         """
-            func(path, connection_handler, request, parameters)
+            func(path, parameters, connection_handler)
         """
         def wrapper(func):
             self.http_route_tree.extend(HTTPURLUtils.from_parsing(path).path_list, func, methods)
