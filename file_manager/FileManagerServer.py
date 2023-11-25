@@ -7,7 +7,7 @@ import os
 
 from myhttp.server import HTTPServer
 from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPResponseGenerator, HTTPHeaderUtils, HTMLUtils
+from myhttp.content import HTTPResponseGenerator, HTTPHeaderUtils, HTMLUtils, KeyUtils
 
 
 class UserManager:
@@ -90,9 +90,7 @@ class CookieManager:
 
     def new(self, username, time_stamp, expire_time = default_expire_time, extend_info = {}):
         data = self._read()
-        cookie = os.urandom(16).hex()
-        while cookie in data:
-            cookie = os.urandom(16).hex()
+        cookie = KeyUtils.random_key(not_in = data)
         data[cookie] = {'username': username, 'time_stamp': time_stamp, 'expire_time': expire_time, **extend_info}
         self._write(data)
         return cookie
@@ -209,7 +207,7 @@ class FileManagerServer(HTTPServer):
         # TODO: template
             # 要求有 ./ ../ 和链接, 要有 400(?), 404(ok), 405(ok)
         
-        with open(self.res_dir + 'html/get_directory.html', 'r') as f:
+        with open(self.res_dir + 'get_directory.html', 'r') as f:
             page_content = f.read()
         page_content = HTMLUtils.render_template(page_content, {
             'path': virtual_path,

@@ -1,4 +1,5 @@
 import re
+import os
 import base64
 
 from .message import HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
@@ -23,6 +24,21 @@ class HTMLUtils:
         
         pattern_compiled = re.compile(pattern)
         return pattern_compiled.sub(replace, template)
+
+
+class KeyUtils:
+    def __init__(self):
+        pass
+    
+    @staticmethod
+    def random_key(half_length = 16, hex = True, not_in = None):
+        key = os.urandom(half_length)
+        key = key.hex() if hex else key
+        if hasattr(not_in, '__contains__'):
+            while key in not_in:
+                key = os.urandom(half_length)
+                key = key.hex() if hex else key
+        return key
 
 
 class HTTPHeaderUtils:
@@ -81,10 +97,11 @@ class HTTPResponseGenerator:
         pass
     
     @staticmethod
-    def plain(body = '', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
+    def text_plain(body = '', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
         return HTTPResponseMessage(
             HTTPStatusLine(version, status_code, status_desc),
             HTTPHeaders({
+                'Content-Type': 'text/plain; charset=utf-8',
                 'Content-Length': str(len(body)),
                 **extend_headers
             }),
