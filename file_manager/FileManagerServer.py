@@ -179,7 +179,7 @@ class FileManagerServer(HTTPServer):
                     authenicated = True
         # neither is valid
         if not authenicated:
-            raise HTTPStatusException(401)
+            raise HTTPStatusException(401, extend_headers = {'WWW-Authenticate': 'Basic realm="Authorization Required"'})
         # return
         return (username, new_cookie)
             # if not authenicated, raise 401, no need to return
@@ -187,6 +187,7 @@ class FileManagerServer(HTTPServer):
     
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path
+        # TODO: 其它 MIME 类型呢？
         # with open(real_path + , 'wb') as f:
         #     f.write(request.body)
     
@@ -198,18 +199,9 @@ class FileManagerServer(HTTPServer):
         Pages & Resources
     """
     
-    def error_page(self, code, desc, request = None):
+    def error_page(self, code, desc):
         # TODO: template
-        response = HTTPResponseGenerator.by_content_type(
-            body = f'<h1>{code} {desc}</h1>',
-            content_type = 'text/html',
-            version = self.http_version if not request else request.request_line.version,
-            status_code = code,
-            status_desc = desc
-        )
-        if code == 401:
-            response.headers.set('WWW-Authenticate', 'Basic realm="Authorization Required"')
-        return response
+        return f'<h1>{code} {desc}</h1>'
     
     def directory_page(self, virtual_path):
         # TODO: template

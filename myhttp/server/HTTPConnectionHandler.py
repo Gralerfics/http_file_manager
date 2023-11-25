@@ -63,10 +63,10 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
     """
         Handle HTTP status errors from `connection`
     """
-    def error_handler(self, code, desc, request = None):
+    def error_handler(self, code, desc, extend_headers, request = None):
         self.last_request = request
         
-        if not self.server.http_error_handler(code, desc, self):
+        if not self.server.http_error_handler(code, desc, extend_headers, self):
             self.send_response(self.connection, HTTPResponseGenerator.by_content_type(
                 body = f'{code} {desc}',
                 content_type = 'text/plain',
@@ -92,7 +92,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         try:
             self.server.http_route_handler(self)
         except HTTPStatusException as e:
-            self.error_handler(e.status_code, e.status_desc, request)
+            self.error_handler(e.status_code, e.status_desc, e.extend_headers, request)
         
         # close connection if Connection: close
         if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':

@@ -29,9 +29,16 @@ server = FileManagerServer(args.ip, args.port)
     Routes
 """
 @server.errorhandler(0)
-def error_handler(code, desc, connection_handler):
+def error_handler(code, desc, extend_headers, connection_handler):
     request = connection_handler.last_request
-    connection_handler.send_response(server.error_page(code, desc, request))
+    connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+        body = server.error_page(code, desc),
+        content_type = 'text/html',
+        version = server.http_version if not request else request.request_line.version,
+        status_code = code,
+        status_desc = desc,
+        extend_headers = extend_headers
+    ))
 
 
 @server.route('/frontend_res', methods = 'GET') # frontend_res (/frontend_res/<file_path>)
@@ -74,13 +81,13 @@ def upload_handler(path, parameters, connection_handler):
     username, new_cookie = server.authenticate(request)                                 # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     if username != located_user:                                                        # wrong user
-        raise HTTPStatusException(403)
+        raise HTTPStatusException(403, extend_headers = extend_headers)
     
     if not server.is_exist(virtual_path):                                               # path not exist
-        raise HTTPStatusException(404)
+        raise HTTPStatusException(404, extend_headers = extend_headers)
     
     if not server.is_directory(virtual_path):                                           # TODO: 必须为目录吧。
-        raise HTTPStatusException(403)
+        raise HTTPStatusException(403, extend_headers = extend_headers)
     
     server.upload_file(virtual_path, request)
     
@@ -107,13 +114,13 @@ def upload_handler(path, parameters, connection_handler):
     username, new_cookie = server.authenticate(request)                                 # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     if username != located_user:                                                        # wrong user
-        raise HTTPStatusException(403)
+        raise HTTPStatusException(403, extend_headers = extend_headers)
     
     if not server.is_exist(virtual_path):                                               # path not exist
-        raise HTTPStatusException(404)
+        raise HTTPStatusException(404, extend_headers = extend_headers)
     
     if not server.is_file(virtual_path):                                                # TODO: 允许删目录吗？目前为不允许。
-        raise HTTPStatusException(403)
+        raise HTTPStatusException(403, extend_headers = extend_headers)
     
     server.delete_file(virtual_path)                                                    # delele file from disk
     
@@ -137,7 +144,7 @@ def access_handler(path, parameters, connection_handler):
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     
     if not server.is_exist(virtual_path):                                               # path not exist
-        raise HTTPStatusException(404)
+        raise HTTPStatusException(404, extend_headers = extend_headers)
     
     if server.is_directory(virtual_path):
         html_body = server.directory_page(virtual_path)

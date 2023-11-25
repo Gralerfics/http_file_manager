@@ -50,7 +50,10 @@ class HTTPHeaderUtils:
         """
         splited = value.split(' ')
         if splited[0].lower() == 'basic':
-            up_splited = base64.b64decode(splited[1]).decode().split(':')
+            try:
+                up_splited = base64.b64decode(splited[1]).decode().split(':')
+            except Exception:
+                raise HTTPStatusException(400) # base64 decoding error
             if len(up_splited) == 2:
                 return tuple(up_splited)
             else:
