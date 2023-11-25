@@ -113,7 +113,6 @@ class FileManagerServer(HTTPServer):
     
     def __init__(self, hostname, port):
         super().__init__(hostname, port)
-        
         self.user_manager = UserManager(self.reg_dir + 'users.pkl')
         self.cookie_manager = CookieManager(self.reg_dir + 'cookies.pkl')
     

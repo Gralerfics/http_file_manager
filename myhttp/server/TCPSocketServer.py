@@ -2,25 +2,40 @@ import socket
 import threading
 import selectors
 
-from ..log import log_print, LogLevel
+from ..log import log_print
 
 
 class BaseConnectionHandlerClass:
-    def __init__(self, connection):
+    def __init__(self, connection, server):
         self.connection = connection
         self.address = connection.getpeername()
+        self.server = server
     
+    """ Override """
     def setup(self):
-        # log_print(f'Connection from <{self.address[0]}:{self.address[1]}>: setup()', LogLevel.INFO)
+        # to be overridden
         pass
     
+    """ Override """
     def handle(self):
-        # log_print(f'Connection from <{self.address[0]}:{self.address[1]}>: handle()', LogLevel.INFO)
+        # to be overridden
         pass
+    
+    """ Override """
+    def finish(self):
+        # to be overridden
+        pass
+    
+    def send(self, data):
+        log_print(f'Data to <{self.address[0]}:{self.address[1]}>: {data}', 'RAW_DATA')
+        self.connection.send(data)
     
     def shutdown(self):
-        # log_print(f'Connection from <{self.address[0]}:{self.address[1]}>: shutdown()', LogLevel.INFO)
-        pass
+        self.finish()                                                       # lifecycle: finish()
+        self.server.selector.unregister(self.connection)                    # unregister
+        self.connection.shutdown(socket.SHUT_WR)
+        self.connection.close()
+        # TODO: 备注，这么写的话, 在关闭服务器后其它 client recv(x) 会一直收到 b'', 不会有异常
 
 
 class TCPSocketServer:
@@ -64,7 +79,7 @@ class TCPSocketServer:
                     if connection == self.welcome_socket:
                         # welcome socket is triggered
                         new_connection_handler = self.launch_connection()
-                        self.connection_handlers_map[connection] = new_connection_handler
+                        self.connection_handlers_map[new_connection_handler.connection] = new_connection_handler
                     else:
                         # connection socket is triggered
                         try:
@@ -83,7 +98,7 @@ class TCPSocketServer:
     def launch_connection(self):
         connection, address = self.welcome_socket.accept()                  # accept new connection socket
         self.selector.register(connection, selectors.EVENT_READ)            # register
-        connection_handler = self.ConnectionHandlerClass(connection)        # encapsulate
+        connection_handler = self.ConnectionHandlerClass(connection, self)  # encapsulate
         connection_handler.setup()                                          # lifecycle: setup()
         return connection_handler
 
@@ -93,13 +108,6 @@ class TCPSocketServer:
 
     def shutdown_connection(self, connection):
         connection_handler = self.connection_handlers_map.pop(connection)   # get and pop connection handler
-        connection_handler.shutdown()                                       # lifecycle: shutdown()
-        self.selector.unregister(connection)                                # unregister
-        connection.shutdown(socket.SHUT_WR)
-        connection.close()
+        connection_handler.shutdown()                                       # shutdown connection handler
         # TODO: 备注，这么写的话, 在关闭服务器后其它 client recv(x) 会一直收到 b'', 不会有异常
-    
-    # def connection_send(self, connection, data):
-    #     log_print(f'Data to <{connection.getpeername()[0]}:{connection.getpeername()[1]}>: {data}', 'RAW_DATA')
-    #     connection.send(data)
 

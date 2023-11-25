@@ -4,9 +4,8 @@ import argparse
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
 
-from myhttp.message import HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
 from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPResponseGenerator, HTTPHeaderUtils
+from myhttp.content import HTTPResponseGenerator
 
 
 """
@@ -29,26 +28,26 @@ server = FileManagerServer(args.ip, args.port)
     Routes
 """
 @server.errorhandler(0)
-def error_handler(code, desc, connection, request = None):
-    server.send_response(connection, server.error_page(code, desc, request))
+def error_handler(code, desc, connection_handler, request = None):
+    connection_handler.send_response(server.error_page(code, desc, request))
 
 
 @server.route('/frontend_res', methods = 'GET')
-def resource_handler(path, connection, request, parameters):
+def resource_handler(path, connection_handler, request, parameters):
     # 前端请求静态资源走这里，对应实际目录 ./res
         # 是否考虑加个 map 的注解……？
     pass
 
 
 @server.route('/backend_api/user_register', methods = 'POST')
-def api_user_register(path, connection, request, parameters):
+def api_user_register(path, connection_handler, request, parameters):
     # TODO: 后端 API 接口, POST, 注册用户
         # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
     pass
 
 
 @server.route('/upload', methods = ['POST', 'GET', 'HEAD']) # upload (/upload?path=/<user>/<dir_path>)
-def upload_handler(path, connection, request, parameters):
+def upload_handler(path, connection_handler, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
     
@@ -71,11 +70,11 @@ def upload_handler(path, connection, request, parameters):
     
     server.upload_file(virtual_path, request)
     
-    server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers)) # 200 OK
+    connection_handler.send_response(HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
 
 
 @server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_path>)
-def upload_handler(path, connection, request, parameters):
+def upload_handler(path, connection_handler, request, parameters):
     if not request.request_line.method == 'POST':
         raise HTTPStatusException(405)
     
@@ -98,11 +97,11 @@ def upload_handler(path, connection, request, parameters):
     
     server.delete_file(virtual_path)
     
-    server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
+    connection_handler.send_response(HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
 
 
 @server.route('/', methods = ['GET', 'POST', 'HEAD']) # view and download # TODO: 405 Method Not Allowed
-def access_handler(path, connection, request, parameters):
+def access_handler(path, connection_handler, request, parameters):
     if not request.request_line.method == 'GET':
         raise HTTPStatusException(405)
     
@@ -117,7 +116,7 @@ def access_handler(path, connection, request, parameters):
     
     if server.is_directory(virtual_path):
         html_body = server.directory_page(virtual_path) # if request.request_line.method == 'GET' else ''
-        server.send_response(connection, HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
+        connection_handler.send_response(HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
     else: # server.is_file(virtual_path):
         pass # TODO: file download
 
