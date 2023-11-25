@@ -5,7 +5,7 @@ list.forEach(function(item) {
     var linkItem = document.createElement('a');
 
     linkItem.textContent = item;
-    linkItem.href = '/' + path + '/' + item;
+    linkItem.href = path + '/' + item;
 
     listItem = document.createElement('li');
     listItem.appendChild(linkItem);
