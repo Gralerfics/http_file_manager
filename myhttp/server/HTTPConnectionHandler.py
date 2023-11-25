@@ -53,8 +53,11 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         self.last_request = None # each connection will only handle one request at a time
         self.additional_data = {}
     
-    def send_response(self, response):
-        self.send(response.serialize())
+    def send_response(self, response, header_only = False): # header_only for HEAD, 和 GET 的头完全一致即可，不用改变 Content-Length 等
+        if not header_only:
+            self.send(response.serialize())
+        else:
+            self.send(response.serialize_header())
     
     def send_chunk(self, chunk_content):
         if not isinstance(chunk_content, bytes):

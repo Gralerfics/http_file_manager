@@ -4,8 +4,9 @@ from ..exception import HTTPStatusException
 
 
 """
-    RouteTree:
-        tree: RouteTreeNode
+    RouteTree
+        函数绑定时 .../name/ 和 .../name 效果一致;
+        函数匹配时 .../name/ 和 .../name 会匹配到相同函数，前者传回 path = ['']，后者会传回 path = [].
 """
 class RouteTree:
     class Node:

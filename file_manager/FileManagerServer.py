@@ -177,7 +177,7 @@ class FileManagerServer(HTTPServer):
             username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization
             if username and password:
                 if self.user_manager.authenticate(username, password):
-                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 30 * 1000 * 1000 * 1000)
+                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 10 * 1000 * 1000 * 1000)
                     authenicated = True
         # neither is valid
         if not authenicated:
@@ -201,7 +201,7 @@ class FileManagerServer(HTTPServer):
         # with open(real_path + , 'wb') as f:
         #     f.write(request.body)
     
-    def delete_file(self, virtual_path):
+    def delete_file(self, virtual_path): # TODO: 会删用户自己的根目录吗？
         real_path = self.root_dir + virtual_path
         if os.path.isfile(real_path):
             os.remove(real_path)

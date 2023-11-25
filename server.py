@@ -132,7 +132,7 @@ def upload_handler(path, parameters, connection_handler):
     ))
 
 
-@server.route('/', methods = ['GET', 'POST', 'HEAD']) # view and download # TODO: 405 Method Not Allowed
+@server.route('/', methods = ['GET', 'POST', 'HEAD']) # view and download
 def access_handler(path, parameters, connection_handler):
     request = connection_handler.last_request
     
@@ -154,7 +154,7 @@ def access_handler(path, parameters, connection_handler):
             content_type = 'text/html',
             version = request.request_line.version,
             extend_headers = extend_headers
-        ))
+        ), header_only = (request.request_line.method == 'HEAD'))
     elif server.is_file(virtual_path): # path[-1] != '':                                # TODO: 同前
         if parameters.get('chunked', '0') == '0':
             # direct download
@@ -162,7 +162,7 @@ def access_handler(path, parameters, connection_handler):
                 file_path = server.root_dir + virtual_path,
                 version = request.request_line.version,
                 extend_headers = extend_headers
-            ))
+            ), header_only = (request.request_line.method == 'HEAD'))
         else:
             # chunked download
             file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
@@ -173,18 +173,19 @@ def access_handler(path, parameters, connection_handler):
             
             extend_headers['Content-Disposition'] = f'{content_disposition}; filename="{path[-1]}"'
             extend_headers['Transfer-Encoding'] = 'chunked'
-            connection_handler.send(HTTPResponseGenerator.by_content_type(
+            connection_handler.send_response(HTTPResponseGenerator.by_content_type(
                 content_type = file_type,
                 version = request.request_line.version,
                 extend_headers = extend_headers
-            ).serialize_header()) # only header
-            with open(server.root_dir + virtual_path, 'rb') as f:
-                while True:
-                    chunk_content = f.read(4096)
-                    if not chunk_content:
-                        connection_handler.send_chunk(b'')
-                        break
-                    connection_handler.send_chunk(chunk_content)
+            ), header_only = True)
+            if request.request_line.method != 'HEAD':
+                with open(server.root_dir + virtual_path, 'rb') as f:
+                    while True:
+                        chunk_content = f.read(4096)
+                        if not chunk_content:
+                            connection_handler.send_chunk(b'')
+                            break
+                        connection_handler.send_chunk(chunk_content)
     else:
         raise HTTPStatusException(404, extend_headers = extend_headers)
 
