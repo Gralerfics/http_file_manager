@@ -4,9 +4,8 @@ import argparse
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
 
-from myhttp.message import HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
 from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPResponseGenerator, HTTPHeaderUtils
+from myhttp.content import HTTPResponseGenerator
 
 
 """
@@ -29,41 +28,48 @@ server = FileManagerServer(args.ip, args.port)
     Routes
 """
 @server.errorhandler(0)
-def error_handler(code, desc, connection, request = None):
-    server.send_response(connection, server.error_page(code, desc, request))
+def error_handler(code, desc, connection_handler):
+    request = connection_handler.last_request
+    connection_handler.send_response(server.error_page(code, desc, request))
 
 
 @server.route('/frontend_res', methods = 'GET')
-def resource_handler(path, connection, request, parameters):
+def resource_handler(path, parameters, connection_handler):
+    request = connection_handler.last_request
+    
     # 前端请求静态资源走这里，对应实际目录 ./res
         # 是否考虑加个 map 的注解……？
     pass
 
 
 @server.route('/backend_api/user_register', methods = 'POST')
-def api_user_register(path, connection, request, parameters):
+def api_user_register(path, parameters, connection_handler):
+    request = connection_handler.last_request
+    
     # TODO: 后端 API 接口, POST, 注册用户
         # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
     pass
 
 
 @server.route('/upload', methods = ['POST', 'GET', 'HEAD']) # upload (/upload?path=/<user>/<dir_path>)
-def upload_handler(path, connection, request, parameters):
-    if not request.request_line.method == 'POST':
+def upload_handler(path, parameters, connection_handler):
+    request = connection_handler.last_request
+    
+    if not request.request_line.method == 'POST':                                       # method should be POST
         raise HTTPStatusException(405)
     
-    if len(path) > 1 or not parameters.__contains__('path'): # TODO: 400 Bad Request?
+    if len(path) > 1 or not parameters.__contains__('path'):                            # TODO: 400 Bad Request?
         raise HTTPStatusException(400)
     
-    virtual_path = parameters['path'].strip('/')
-    located_user = server.belongs_to(virtual_path)
+    virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
+    located_user = server.belongs_to(virtual_path)                                      # target user
     
-    username, new_cookie = server.authenticate(request) # authenticate
+    username, new_cookie = server.authenticate(request)                                 # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
-    if username != located_user:
+    if username != located_user:                                                        # wrong user
         raise HTTPStatusException(403)
     
-    if not server.is_exist(virtual_path):
+    if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404)
     
     if not server.is_directory(virtual_path): # TODO: 必须为目录吧。
@@ -71,53 +77,56 @@ def upload_handler(path, connection, request, parameters):
     
     server.upload_file(virtual_path, request)
     
-    server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers)) # 200 OK
+    connection_handler.send_response(HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
 
 
 @server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_path>)
-def upload_handler(path, connection, request, parameters):
-    if not request.request_line.method == 'POST':
+def upload_handler(path, parameters, connection_handler):
+    request = connection_handler.last_request
+    
+    if not request.request_line.method == 'POST':                                       # method should be POST
         raise HTTPStatusException(405)
     
-    if len(path) > 1 or not parameters.__contains__('path'): # TODO: 400 Bad Request?
+    if len(path) > 1 or not parameters.__contains__('path'):                            # TODO: 400 Bad Request?
         raise HTTPStatusException(400)
     
-    virtual_path = parameters['path'].strip('/')
-    located_user = server.belongs_to(virtual_path)
+    virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
+    located_user = server.belongs_to(virtual_path)                                      # target user
     
-    username, new_cookie = server.authenticate(request) # authenticate
+    username, new_cookie = server.authenticate(request)                                 # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
-    if username != located_user:
+    if username != located_user:                                                        # wrong user
         raise HTTPStatusException(403)
     
-    if not server.is_exist(virtual_path):
+    if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404)
     
-    if not server.is_file(virtual_path): # TODO: 允许删目录吗？目前为不允许。
+    if not server.is_file(virtual_path):                                                # TODO: 允许删目录吗？目前为不允许。
         raise HTTPStatusException(403)
     
-    server.delete_file(virtual_path)
+    server.delete_file(virtual_path)                                                    # delele file from disk
     
-    server.send_response(connection, HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
+    connection_handler.send_response(HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
 
 
 @server.route('/', methods = ['GET', 'POST', 'HEAD']) # view and download # TODO: 405 Method Not Allowed
-def access_handler(path, connection, request, parameters):
-    if not request.request_line.method == 'GET':
+def access_handler(path, parameters, connection_handler):
+    request = connection_handler.last_request
+    
+    if not request.request_line.method == 'GET':                                        # method should be GET
         raise HTTPStatusException(405)
     
-    virtual_path = '/'.join(path)
+    virtual_path = '/'.join(path)                                                       # target path (virtual)
     
-    # TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
-    username, new_cookie = server.authenticate(request) # authenticate
+    username, new_cookie = server.authenticate(request)                                 # authenticate, TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     
-    if not server.is_exist(virtual_path):
+    if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404)
     
     if server.is_directory(virtual_path):
-        html_body = server.directory_page(virtual_path) # if request.request_line.method == 'GET' else ''
-        server.send_response(connection, HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
+        html_body = server.directory_page(virtual_path)
+        connection_handler.send_response(HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
     else: # server.is_file(virtual_path):
         pass # TODO: file download
 

@@ -1,8 +1,9 @@
 import re
+
 from .exception import HTTPStatusException
 
 
-class URLUtils:
+class HTTPURLUtils:
     path_pattern = re.compile(r'^/?([^?]*)(\?.*)?$') # separate path and params
     params_pattern = re.compile(r'[\?&]([^=]+)=([^&]+)') # param key-value pairs
     
