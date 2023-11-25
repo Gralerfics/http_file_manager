@@ -3,12 +3,12 @@ import re
 from .exception import HTTPStatusException
 
 
-class HTTPURLUtils:
+class HTTPUrl:
     path_pattern = re.compile(r'^/?([^?]*)(\?.*)?$') # separate path and params
     params_pattern = re.compile(r'[\?&]([^=]+)=([^&]+)') # param key-value pairs
     
-    def __init__(self, path_list = [], params = {}):
-        self.path_list = path_list
+    def __init__(self, path_list = [''], params = {}):
+        self.path_list = path_list # the last item is the file name, if path_list[-1] == '' means directory
         self.params = params
     
     def serialize(self):
@@ -20,7 +20,7 @@ class HTTPURLUtils:
 
         if path_match:
             path = path_match.group(1)
-            path_list = [segment for segment in path.split('/') if segment]
+            path_list = path.split('/') # [segment for segment in path.split('/') if segment]
             
             params_str = path_match.group(2)
             params_dict = dict(c.params_pattern.findall(params_str)) if params_str else {}

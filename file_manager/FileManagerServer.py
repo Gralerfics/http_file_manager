@@ -1,6 +1,6 @@
-import mimetypes
 import threading
 import pickle
+import shutil
 import json
 import time
 import os
@@ -94,6 +94,8 @@ class CookieManager:
         data[cookie] = {'username': username, 'time_stamp': time_stamp, 'expire_time': expire_time, **extend_info}
         self._write(data)
         return cookie
+    
+    # TODO: timely remove expired cookies
 
     def remove(self, cookie):
         data = self._read()
@@ -120,16 +122,23 @@ class FileManagerServer(HTTPServer):
         Information
     """
     
-    def is_exist(self, virtual_path):
-        real_path = self.root_dir + virtual_path
+    def get_path(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        return prefix + virtual_path
+    
+    def is_exist(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        real_path = prefix + virtual_path
         return os.path.exists(real_path)
     
-    def is_directory(self, virtual_path):
-        real_path = self.root_dir + virtual_path
+    def is_directory(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        real_path = prefix + virtual_path
         return os.path.isdir(real_path)
     
-    def is_file(self, virtual_path):
-        real_path = self.root_dir + virtual_path
+    def is_file(self, virtual_path, resourse = False):
+        prefix = self.res_dir if resourse else self.root_dir
+        real_path = prefix + virtual_path
         return os.path.isfile(real_path)
 
     def belongs_to(self, virtual_path):
@@ -141,13 +150,14 @@ class FileManagerServer(HTTPServer):
     def list_directory(self, path):
         real_path = self.root_dir + path
         with os.scandir(real_path) as it:
-            return json.dumps([entry.name for entry in it])
+            return json.dumps([entry.name + ('/' if os.path.isdir(real_path + entry.name) else '') for entry in it])
     
     """
         Actions
     """
     
-    def authenticate(self, request):
+    def authenticate(self, connection_handler):
+        request = connection_handler.last_request
         authenicated = False
         new_cookie = None
         # there is a cookie: check if it is valid
@@ -167,40 +177,45 @@ class FileManagerServer(HTTPServer):
             username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization
             if username and password:
                 if self.user_manager.authenticate(username, password):
-                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 10 * 1000 * 1000 * 1000)
+                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 30 * 1000 * 1000 * 1000)
                     authenicated = True
         # neither is valid
         if not authenicated:
-            raise HTTPStatusException(401)
-        # return
+            raise HTTPStatusException(401, extend_headers = {'WWW-Authenticate': 'Basic realm="Authorization Required"'})
+        # return username and new cookie
         return (username, new_cookie)
             # if not authenicated, raise 401, no need to return
-            # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization
+            # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization, otherwise None
     
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path
+        
+        if request.headers.is_exist('Content-Type'):
+            content_type_dict = HTTPHeaderUtils.parse_content_type(request.headers.get('Content-Type'))
+            if 'multipart/form-data' in content_type_dict:
+                boundary = content_type_dict['boundary']
+        else:
+            raise HTTPStatusException(400) # TODO: Content-Type is required
+        
+        # TODO: 其它 MIME 类型呢？
         # with open(real_path + , 'wb') as f:
         #     f.write(request.body)
     
     def delete_file(self, virtual_path):
         real_path = self.root_dir + virtual_path
-        os.remove(real_path)
+        if os.path.isfile(real_path):
+            os.remove(real_path)
+        else:
+            shutil.rmtree(real_path)
+            # os.removedirs(real_path)
     
     """
-        Pages
+        Pages & Resources
     """
     
-    def error_page(self, code, desc, request = None):
+    def error_page(self, code, desc):
         # TODO: template
-        response = HTTPResponseGenerator.text_html(
-            body = f'<h1>{code} {desc}</h1>',
-            version = self.http_version if not request else request.request_line.version,
-            status_code = code,
-            status_desc = desc
-        )
-        if code == 401:
-            response.headers.set('WWW-Authenticate', 'Basic realm="Authorization Required"')
-        return response
+        return f'<h1>{code} {desc}</h1>'
     
     def directory_page(self, virtual_path):
         # TODO: template

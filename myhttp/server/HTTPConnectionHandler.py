@@ -51,22 +51,26 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         super().__init__(connection, server)
         self.recv_buffer_manager = RecvBufferManager()
         self.last_request = None # each connection will only handle one request at a time
+        self.additional_data = {}
     
     def send_response(self, response):
         self.send(response.serialize())
     
-    def send_chunk(self, chunk_raw = b''):
-        self.send(f'{len(chunk_raw):X}\r\n'.encode() + chunk_raw + b'\r\n')
+    def send_chunk(self, chunk_content):
+        if not isinstance(chunk_content, bytes):
+            chunk_content = chunk_content.encode()
+        self.send(f'{len(chunk_content):X}\r\n'.encode() + chunk_content + b'\r\n')
     
     """
         Handle HTTP status errors from `connection`
     """
-    def error_handler(self, code, desc, request = None):
+    def error_handler(self, code, desc, extend_headers, request = None):
         self.last_request = request
         
-        if not self.server.http_error_handler(code, desc, self):
-            self.send_response(self.connection, HTTPResponseGenerator.text_plain( # TODO
+        if not self.server.http_error_handler(code, desc, extend_headers, self):
+            self.send_response(self.connection, HTTPResponseGenerator.by_content_type(
                 body = f'{code} {desc}',
+                content_type = 'text/plain',
                 version = self.http_version if not request else request.request_line.version,
                 status_code = code,
                 status_desc = desc
@@ -89,7 +93,10 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         try:
             self.server.http_route_handler(self)
         except HTTPStatusException as e:
-            self.error_handler(e.status_code, e.status_desc, request)
+            self.error_handler(e.status_code, e.status_desc, e.extend_headers, request)
+        except Exception:
+            raise
+            raise HTTPStatusException(500) # TODO: ensure the server will not crash due to one of the connections
         
         # close connection if Connection: close
         if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':
