@@ -1,5 +1,5 @@
 from . import TCPSocketServer, HTTPConnectionHandler
-from ..message import HTTPURLUtils
+from ..message import HTTPUrl
 from ..exception import HTTPStatusException
 
 
@@ -20,10 +20,12 @@ class RouteTree:
         self.tree = RouteTree.Node()
 
     def extend(self, path_list, func, methods):
-        # TODO: path is case-insensitive?
+        # path is case-sensitive
         node = self.tree
         for path in path_list:
-            if not node.children.__contains__(path):
+            if not path: # if path == '', do not go deeper
+                break
+            if not node.children.__contains__(path): # TODO: 后定义的不覆盖先定义的
                 node.children[path] = RouteTree.Node()
             node = node.children[path]
         if type(methods) == str:
@@ -35,6 +37,8 @@ class RouteTree:
         node = self.tree
         idx = 0
         for path in path_list:
+            if not path: # if path == '', do not go deeper
+                break
             if not node.children.__contains__(path):
                 break
             node = node.children[path]
@@ -79,7 +83,7 @@ class HTTPServer(TCPSocketServer):
         if not request.request_line.method in self.supported_methods:
             raise HTTPStatusException(405)
         
-        url = HTTPURLUtils.from_parsing(request.request_line.path)
+        url = HTTPUrl.from_parsing(request.request_line.path)
         path_matches, get_params = url.path_list, url.params
         
         func, arg_list = self.http_route_tree.search(path_matches, request.request_line.method)
@@ -104,7 +108,7 @@ class HTTPServer(TCPSocketServer):
             func(path, parameters, connection_handler)
         """
         def wrapper(func):
-            self.http_route_tree.extend(HTTPURLUtils.from_parsing(path).path_list, func, methods)
+            self.http_route_tree.extend(HTTPUrl.from_parsing(path).path_list, func, methods)
             return func
         return wrapper
 

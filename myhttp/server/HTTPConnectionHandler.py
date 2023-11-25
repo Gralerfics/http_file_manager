@@ -51,6 +51,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         super().__init__(connection, server)
         self.recv_buffer_manager = RecvBufferManager()
         self.last_request = None # each connection will only handle one request at a time
+        self.additional_data = {}
     
     def send_response(self, response):
         self.send(response.serialize())
@@ -94,6 +95,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         except HTTPStatusException as e:
             self.error_handler(e.status_code, e.status_desc, e.extend_headers, request)
         except Exception:
+            raise
             raise HTTPStatusException(500) # TODO: ensure the server will not crash due to one of the connections
         
         # close connection if Connection: close

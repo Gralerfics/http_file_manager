@@ -150,13 +150,14 @@ class FileManagerServer(HTTPServer):
     def list_directory(self, path):
         real_path = self.root_dir + path
         with os.scandir(real_path) as it:
-            return json.dumps([entry.name for entry in it])
+            return json.dumps([entry.name + ('/' if os.path.isdir(real_path + entry.name) else '') for entry in it])
     
     """
         Actions
     """
     
-    def authenticate(self, request):
+    def authenticate(self, connection_handler):
+        request = connection_handler.last_request
         authenicated = False
         new_cookie = None
         # there is a cookie: check if it is valid
@@ -181,13 +182,21 @@ class FileManagerServer(HTTPServer):
         # neither is valid
         if not authenicated:
             raise HTTPStatusException(401, extend_headers = {'WWW-Authenticate': 'Basic realm="Authorization Required"'})
-        # return
+        # return username and new cookie
         return (username, new_cookie)
             # if not authenicated, raise 401, no need to return
-            # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization
+            # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization, otherwise None
     
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path
+        
+        if request.headers.is_exist('Content-Type'):
+            content_type_dict = HTTPHeaderUtils.parse_content_type(request.headers.get('Content-Type'))
+            if 'multipart/form-data' in content_type_dict:
+                boundary = content_type_dict['boundary']
+        else:
+            raise HTTPStatusException(400) # TODO: Content-Type is required
+        
         # TODO: 其它 MIME 类型呢？
         # with open(real_path + , 'wb') as f:
         #     f.write(request.body)

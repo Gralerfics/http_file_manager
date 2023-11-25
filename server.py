@@ -49,6 +49,9 @@ def resource_handler(path, parameters, connection_handler):
     
     if not server.is_exist(virtual_path, resourse = True):                              # path not exist
         raise HTTPStatusException(404)
+
+    if not server.is_file(virtual_path, resourse = True):                               # path is not a file
+        raise HTTPStatusException(400)
     
     connection_handler.send_response(HTTPResponseGenerator.by_file_path(
         file_path = server.get_path(virtual_path, resourse = True),
@@ -56,9 +59,12 @@ def resource_handler(path, parameters, connection_handler):
     ))
 
 
-@server.route('/backend_api/user_register', methods = 'POST')
+@server.route('/backend_api/user_register', methods = 'POST') # register (/backend_api/user_register)
 def api_user_register(path, parameters, connection_handler):
     request = connection_handler.last_request
+    
+    if len(path) > 2:
+        raise HTTPStatusException(400)
     
     # TODO: 后端 API 接口, POST, 注册用户
         # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
@@ -78,7 +84,7 @@ def upload_handler(path, parameters, connection_handler):
     virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
     located_user = server.belongs_to(virtual_path)                                      # target user
     
-    username, new_cookie = server.authenticate(request)                                 # authenticate
+    username, new_cookie = server.authenticate(connection_handler)                      # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     if username != located_user:                                                        # wrong user
         raise HTTPStatusException(403, extend_headers = extend_headers)
@@ -92,7 +98,6 @@ def upload_handler(path, parameters, connection_handler):
     server.upload_file(virtual_path, request)
     
     connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-        content_type = 'text/html',
         version = request.request_line.version,
         extend_headers = extend_headers
     ))
@@ -111,7 +116,7 @@ def upload_handler(path, parameters, connection_handler):
     virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
     located_user = server.belongs_to(virtual_path)                                      # target user
     
-    username, new_cookie = server.authenticate(request)                                 # authenticate
+    username, new_cookie = server.authenticate(connection_handler)                      # authenticate
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     if username != located_user:                                                        # wrong user
         raise HTTPStatusException(403, extend_headers = extend_headers)
@@ -122,7 +127,6 @@ def upload_handler(path, parameters, connection_handler):
     server.delete_file(virtual_path)                                                    # delele file from disk
     
     connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-        content_type = 'text/html',
         version = request.request_line.version,
         extend_headers = extend_headers
     ))
@@ -137,13 +141,13 @@ def access_handler(path, parameters, connection_handler):
     
     virtual_path = '/'.join(path)                                                       # target path (virtual)
     
-    username, new_cookie = server.authenticate(request)                                 # authenticate, TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
+    username, new_cookie = server.authenticate(connection_handler)                      # authenticate, TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
     extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
     
     if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404, extend_headers = extend_headers)
     
-    if server.is_directory(virtual_path):
+    if server.is_directory(virtual_path): # and path[-1] == '':                         # TODO: 这里关系到例如 localhost/user1/ 和 localhost/user1 的区别，目前是如果后者确实是目录，则忽略缺少斜杠的错误
         html_body = server.directory_page(virtual_path)
         connection_handler.send_response(HTTPResponseGenerator.by_content_type(
             body = html_body,
@@ -151,7 +155,7 @@ def access_handler(path, parameters, connection_handler):
             version = request.request_line.version,
             extend_headers = extend_headers
         ))
-    else: # server.is_file(virtual_path):
+    elif server.is_file(virtual_path): # path[-1] != '':                                # TODO: 同前
         if parameters.get('chunked', '0') == '0':
             # direct download
             connection_handler.send_response(HTTPResponseGenerator.by_file_path(
@@ -181,6 +185,8 @@ def access_handler(path, parameters, connection_handler):
                         connection_handler.send_chunk(b'')
                         break
                     connection_handler.send_chunk(chunk_content)
+    else:
+        raise HTTPStatusException(404, extend_headers = extend_headers)
 
 
 """

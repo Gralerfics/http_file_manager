@@ -62,32 +62,44 @@ class HTTPHeaderUtils:
             return (None, None)
     
     @staticmethod
+    def by_semicolon_equal_pairs(value):
+        """
+            [Format] <key>=<value>; <key>; ...
+            [Example Value] multipart/form-data; boundary=327c6dfd4efcbc1a8cb73dfbd452c924
+            [Return] dict: {key: value, key: None, ...}
+        """
+        pairs_splited = value.split(';')
+        dict = {}
+        for pair in pairs_splited:
+            pair = pair.strip()
+            pair_splited = pair.split('=')
+            if len(pair_splited) == 2:
+                key, value = pair_splited
+                dict[key.strip().lower()] = value.strip() # case-insensitive key
+            elif len(pair_splited) == 1:
+                key = pair_splited[0]
+                dict[key] = None
+            elif len(pair) != 0:
+                raise HTTPStatusException(400)
+        return dict
+    
+    @staticmethod
     def parse_cookie(value):
         """
             [Format] Cookie: <cookie-name>=<cookie-value>; ...
             [Example Value] session-id=e53fc18600f64ec64c36b550a68fbe5a; __itrace_wid=34a8a195-5ac4-4503-3736-6cc89e8e02fc
             [Return] cookie_dict
         """
-        pairs_splited = value.split(';')
-        cookies = {}
-        for pair in pairs_splited:
-            pair = pair.strip()
-            pair_splited = pair.split('=')
-            if len(pair_splited) == 2:
-                key, value = pair_splited
-                cookies[key.strip().lower()] = value.strip() # case-insensitive key
-            elif len(pair) != 0:
-                raise HTTPStatusException(400)
-        return cookies
+        return HTTPHeaderUtils.by_semicolon_equal_pairs(value)
     
     @staticmethod
     def parse_content_type(value):
         """
             [Format] Content-Type: <type>/<subtype>; boundary=<boundary> TODO: 看文档还有什么
             [Example Value] multipart/form-data; boundary=327c6dfd4efcbc1a8cb73dfbd452c924
-            [Return] TODO
+            [Return] content_type_dict
         """
-        pass
+        return HTTPHeaderUtils.by_semicolon_equal_pairs(value)
 
 
 class HTTPResponseGenerator:
