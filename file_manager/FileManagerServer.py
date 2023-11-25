@@ -1,5 +1,6 @@
 import threading
 import pickle
+import shutil
 import json
 import time
 import os
@@ -193,7 +194,11 @@ class FileManagerServer(HTTPServer):
     
     def delete_file(self, virtual_path):
         real_path = self.root_dir + virtual_path
-        os.remove(real_path)
+        if os.path.isfile(real_path):
+            os.remove(real_path)
+        else:
+            shutil.rmtree(real_path)
+            # os.removedirs(real_path)
     
     """
         Pages & Resources

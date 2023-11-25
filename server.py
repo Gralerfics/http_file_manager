@@ -98,7 +98,7 @@ def upload_handler(path, parameters, connection_handler):
     ))
 
 
-@server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_path>)
+@server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_or_dir_path>)
 def upload_handler(path, parameters, connection_handler):
     request = connection_handler.last_request
     
@@ -118,9 +118,6 @@ def upload_handler(path, parameters, connection_handler):
     
     if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404, extend_headers = extend_headers)
-    
-    if not server.is_file(virtual_path):                                                # TODO: 允许删目录吗？目前为不允许。
-        raise HTTPStatusException(403, extend_headers = extend_headers)
     
     server.delete_file(virtual_path)                                                    # delele file from disk
     
