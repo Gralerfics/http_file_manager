@@ -72,12 +72,16 @@ def upload_handler(path, parameters, connection_handler):
     if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404)
     
-    if not server.is_directory(virtual_path): # TODO: 必须为目录吧。
+    if not server.is_directory(virtual_path):                                           # TODO: 必须为目录吧。
         raise HTTPStatusException(403)
     
     server.upload_file(virtual_path, request)
     
-    connection_handler.send_response(HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
+    connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+        content_type = 'text/html',
+        version = request.request_line.version,
+        extend_headers = extend_headers
+    ))
 
 
 @server.route('/delete', methods = ['POST', 'GET', 'HEAD']) # delete (/delete?path=/<user>/<file_path>)
@@ -106,7 +110,11 @@ def upload_handler(path, parameters, connection_handler):
     
     server.delete_file(virtual_path)                                                    # delele file from disk
     
-    connection_handler.send_response(HTTPResponseGenerator.text_html(version = request.request_line.version, extend_headers = extend_headers))
+    connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+        content_type = 'text/html',
+        version = request.request_line.version,
+        extend_headers = extend_headers
+    ))
 
 
 @server.route('/', methods = ['GET', 'POST', 'HEAD']) # view and download # TODO: 405 Method Not Allowed
@@ -126,9 +134,38 @@ def access_handler(path, parameters, connection_handler):
     
     if server.is_directory(virtual_path):
         html_body = server.directory_page(virtual_path)
-        connection_handler.send_response(HTTPResponseGenerator.text_html(body = html_body, version = request.request_line.version, extend_headers = extend_headers))
+        connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+            body = html_body,
+            content_type = 'text/html',
+            version = request.request_line.version,
+            extend_headers = extend_headers
+        ))
     else: # server.is_file(virtual_path):
-        pass # TODO: file download
+        extend_headers['Content-Disposition'] = f'attachment; filename="{path[-1]}"'
+        if parameters.get('chunked', '0') == '0':
+            # direct download
+            with open(server.root_dir + virtual_path, 'rb') as f:
+                connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+                    body = f.read(),
+                    content_type = 'application/octet-stream',
+                    version = request.request_line.version,
+                    extend_headers = extend_headers
+                ))
+        else:
+            # chunked download
+            extend_headers['Transfer-Encoding'] = 'chunked'
+            connection_handler.send(HTTPResponseGenerator.by_content_type(
+                content_type = 'application/octet-stream',
+                version = request.request_line.version,
+                extend_headers = extend_headers
+            ).serialize_header()) # only header
+            with open(server.root_dir + virtual_path, 'rb') as f:
+                while True:
+                    chunk_content = f.read(4096)
+                    if not chunk_content:
+                        connection_handler.send_chunk(b'')
+                        break
+                    connection_handler.send_chunk(chunk_content)
 
 
 """

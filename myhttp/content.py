@@ -97,26 +97,16 @@ class HTTPResponseGenerator:
         pass
     
     @staticmethod
-    def text_plain(body = '', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
+    def by_content_type(body = b'', content_type = 'text/plain', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
+        if not isinstance(body, bytes):
+            body = body.encode()
         return HTTPResponseMessage(
             HTTPStatusLine(version, status_code, status_desc),
             HTTPHeaders({
-                'Content-Type': 'text/plain; charset=utf-8',
+                'Content-Type': content_type,
                 'Content-Length': str(len(body)),
                 **extend_headers
             }),
-            body.encode()
-        )
-    
-    @staticmethod
-    def text_html(body = '', version = 'HTTP/1.1', status_code = 200, status_desc = 'OK', extend_headers = {}):
-        return HTTPResponseMessage(
-            HTTPStatusLine(version, status_code, status_desc),
-            HTTPHeaders({
-                'Content-Type': 'text/html; charset=utf-8',
-                'Content-Length': str(len(body)),
-                **extend_headers
-            }),
-            body.encode()
+            body
         )
 

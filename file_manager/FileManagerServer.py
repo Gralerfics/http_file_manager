@@ -94,6 +94,8 @@ class CookieManager:
         data[cookie] = {'username': username, 'time_stamp': time_stamp, 'expire_time': expire_time, **extend_info}
         self._write(data)
         return cookie
+    
+    # TODO: timely remove expired cookies
 
     def remove(self, cookie):
         data = self._read()
@@ -167,7 +169,7 @@ class FileManagerServer(HTTPServer):
             username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization
             if username and password:
                 if self.user_manager.authenticate(username, password):
-                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 10 * 1000 * 1000 * 1000)
+                    new_cookie = self.cookie_manager.new(username, time.time_ns(), 30 * 1000 * 1000 * 1000)
                     authenicated = True
         # neither is valid
         if not authenicated:
@@ -192,8 +194,9 @@ class FileManagerServer(HTTPServer):
     
     def error_page(self, code, desc, request = None):
         # TODO: template
-        response = HTTPResponseGenerator.text_html(
+        response = HTTPResponseGenerator.by_content_type(
             body = f'<h1>{code} {desc}</h1>',
+            content_type = 'text/html',
             version = self.http_version if not request else request.request_line.version,
             status_code = code,
             status_desc = desc
