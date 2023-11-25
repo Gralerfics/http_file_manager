@@ -195,7 +195,7 @@ class FileManagerServer(HTTPServer):
         # TODO: template
         response = HTTPResponseGenerator.text_html(
             body = f'<h1>{code} {desc}</h1>',
-            version = self.get_http_version() if not request else request.request_line.version,
+            version = self.http_version if not request else request.request_line.version,
             status_code = code,
             status_desc = desc
         )

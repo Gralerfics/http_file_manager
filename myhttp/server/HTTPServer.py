@@ -3,7 +3,6 @@ from enum import Enum
 from . import TCPSocketServer
 from ..log import log_print, LogLevel
 from ..message import URLUtils, HTTPRequestLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage, HTTPStatusLine
-from ..request import SimpleHTTPRequestHandler
 from ..exception import HTTPStatusException
 from ..content import HTTPResponseGenerator
 
@@ -129,22 +128,18 @@ class RouteTree:
     HTTPServer
 """
 class HTTPServer(TCPSocketServer):
+    http_version = 'HTTP/1.1'
+    supported_methods = ['GET', 'HEAD', 'POST']
     recv_buffer_size = 4096
     
-    def __init__(self, hostname, port, request_handler = SimpleHTTPRequestHandler()):
+    def __init__(self, hostname, port):
         super().__init__(hostname, port)
         
         self.route_tree = RouteTree() # route mapping tree shared by all connections
         
-        self.server_request_handler = request_handler # request_handler shared by all connections
-        self.server_request_handler.route_tree = self.route_tree
-        
         self.server_error_handler = {} # error handler shared by all connections
         
         self.recv_pool = RecvPool() # each connection should have its own recv object
-    
-    def get_http_version(self):
-        return self.server_request_handler.http_version
     
     def send_response(self, connection, response):
         self.connection_send(connection, response.serialize())
@@ -166,7 +161,7 @@ class HTTPServer(TCPSocketServer):
         if not_sent:
             self.send_response(connection, HTTPResponseGenerator.text_plain(
                 body = f'{code} {desc}',
-                version = self.get_http_version() if not request else request.request_line.version,
+                version = self.http_version if not request else request.request_line.version,
                 status_code = code,
                 status_desc = desc
             ))
@@ -175,17 +170,36 @@ class HTTPServer(TCPSocketServer):
         Handle an encapsulated request from `connection`
     """
     def handle_request(self, connection, request):
+        # add default Connection header
         if not request.headers.is_exist('Connection'):
-            if self.get_http_version() == 'HTTP/1.1':
+            if self.http_version == 'HTTP/1.1':
                 request.headers.set('Connection', 'keep-alive')
-            elif self.get_http_version() == 'HTTP/1.0':
+            elif self.http_version == 'HTTP/1.0':
                 request.headers.set('Connection', 'close')
         
+        # handle request
         try:
-            self.server_request_handler.handle(connection, request)
+            if not request.request_line.method in self.supported_methods:
+                raise HTTPStatusException(405)
+            
+            url = URLUtils.from_parsing(request.request_line.path)
+            path_matches, get_params = url.path_list, url.params
+            
+            func, arg_list = self.route_tree.search(path_matches, request.request_line.method)
+            if not func:
+                raise HTTPStatusException(404) # TODO: 一定是 404 吗？
+            
+            args_grp = {}
+            args_grp['path'] = arg_list
+            args_grp['connection'] = connection
+            args_grp['request'] = request
+            args_grp['parameters'] = get_params
+            
+            func(**args_grp)
         except HTTPStatusException as e:
             self.http_status_error_handler(e, connection, request)
         
+        # close connection if Connection: close
         if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':
             self.shutdown_connection(connection)
     
