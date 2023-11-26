@@ -18,8 +18,11 @@ class HTTPUrl:
     
     @classmethod
     def from_parsing(c, url):
-        # decode percent encoding, TODO: 若带有 #, 浏览器会自动去除 # 后的内容，无法解决，除非修改文档 API，在此记录一下
+        # decode percent encoding
+            # TODO: 若带有 #, 浏览器会自动去除 # 后的内容，无法解决，除非修改文档 API，在此记录一下
+            # 同样的，在 get params 中带有 & 和 = 也会无法正确解析
         decoded_url = c.percent_encoding_pattern.sub(lambda x: chr(int(x.group(1), 16)), url)
+        decoded_url = decoded_url.encode('ISO-8859-1').decode('utf-8')
         
         path_match = c.path_pattern.match(decoded_url)
         if path_match:
