@@ -155,9 +155,10 @@ class FileManagerServer(HTTPServer):
         return split[0] if self.is_exist(split[0]) and self.is_directory(split[0]) else None
     
     def list_directory(self, path):
-        real_path = self.root_dir + path.strip('/')
+        real_path = self.root_dir + path.strip('/') + '/'
         with os.scandir(real_path) as it:
-            return json.dumps([entry.name + ('/' if os.path.isdir(real_path + entry.name) else '') for entry in it])
+            dir_list = [entry.name + ('/' if os.path.isdir(real_path + entry.name) else '') for entry in it]
+            return json.dumps(dir_list)
     
     """
         Actions
