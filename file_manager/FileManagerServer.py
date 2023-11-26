@@ -219,9 +219,12 @@ class FileManagerServer(HTTPServer):
         if username != located_user:                                                        # wrong user
             raise HTTPStatusException(403, extend_headers = extend_headers)
         
-        if not server.is_exist(virtual_path):                                               # path not exist, TODO: setup directory?
-            server.mkdir(virtual_path)
-            # raise HTTPStatusException(404, extend_headers = extend_headers)
+        if not server.is_exist(virtual_path):                                               # path not exist
+            # 路径不存在时，如果是用户根目录，创建用户目录，否则报 404
+            if virtual_path == username:
+                server.mkdir(virtual_path)
+            else:
+                raise HTTPStatusException(404, extend_headers = extend_headers)
         
         if not server.is_directory(virtual_path):                                           # TODO: 必须为目录吧。
             raise HTTPStatusException(403, extend_headers = extend_headers)
@@ -417,7 +420,7 @@ class FileManagerServer(HTTPServer):
                                 except Exception: # TODO: unexpected os error
                                     file_errer = True
             else:
-                pass # TODO: 其它 MIME 类型呢？至少加上请求体直接为文件内容的基本类型。
+                pass # TODO: 其它 MIME 类型，文档只要求支持 multipart/form-data，因为测试使用 requests
         if file_errer:
             raise HTTPStatusException(500)
         if not parsed:

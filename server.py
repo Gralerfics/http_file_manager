@@ -30,8 +30,7 @@ server = FileManagerServer(
     upload_route = '/upload',
     delete_route = '/delete'
 )
-# TODO: to be removed
-server.cookie_manager._write({})
+server.cookie_manager._write({}) # TODO: clear the cookies. to be removed?
 
 
 """
