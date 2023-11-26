@@ -18,9 +18,23 @@
         <ul id="directoryList"></ul>
     </div>
 
+    <br>
+
+    <h1>File Upload</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="fileInput">Choose a file:</label>
+        <input type="file" id="fileInput" name="file" required>
+        <button type="submit">Upload</button>
+    </form>
+
     <script>
         var list = {{ list_json }}
         var path = "{{ path }}"
+        
+        document.getElementById('uploadForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            uploadFile(path, document.getElementById('fileInput'));
+        });
     </script>
     <script src="/frontend_res/js/get_directory.js"></script>
 </body>

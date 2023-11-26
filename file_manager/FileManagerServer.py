@@ -215,6 +215,7 @@ class FileManagerServer(HTTPServer):
                         for file in file_list:
                             filename = file.get('filename', None)
                             content = file.get('content', None)
+                            # TODO: 文件重名的处理？
                             if filename is not None and content is not None:
                                 try:
                                     with open(real_path + filename, 'wb') as f:
@@ -222,13 +223,13 @@ class FileManagerServer(HTTPServer):
                                 except Exception: # TODO: unexpected os error
                                     file_errer = True
             else:
-                pass # TODO: 其它 MIME 类型呢？
+                pass # TODO: 其它 MIME 类型呢？至少加上请求体直接为文件内容的基本类型。
         if file_errer:
             raise HTTPStatusException(500)
         if not parsed:
             raise HTTPStatusException(400) # TODO: Content-Type is required
     
-    def delete_file(self, virtual_path): # TODO: 会删用户自己的根目录吗？
+    def delete_file(self, virtual_path): # TODO: 用户自己根根目录的处理
         real_path = self.root_dir + virtual_path
         if os.path.isfile(real_path):
             os.remove(real_path)
