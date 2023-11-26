@@ -74,7 +74,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             self.send_response(self.connection, HTTPResponseGenerator.by_content_type(
                 body = f'{code} {desc}',
                 content_type = 'text/plain',
-                version = self.http_version if not request else request.request_line.version,
+                version = self.server.http_version if not request else request.request_line.version,
                 status_code = code,
                 status_desc = desc
             ))
@@ -90,9 +90,9 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
         
         # add default Connection header
         if not request.headers.is_exist('Connection'):
-            if self.http_version == 'HTTP/1.1':
+            if self.server.http_version == 'HTTP/1.1':
                 request.headers.set('Connection', 'keep-alive')
-            elif self.http_version == 'HTTP/1.0':
+            elif self.server.http_version == 'HTTP/1.0':
                 request.headers.set('Connection', 'close')
         
         # handle request
