@@ -208,7 +208,7 @@ class FileManagerServer(HTTPServer):
         if not request.request_line.method == 'POST':                                       # method should be POST
             raise HTTPStatusException(405)
         
-        if len(path) > 1 or not parameters.__contains__('path'):                            # TODO: 400 Bad Request?
+        if not parameters.__contains__('path'):                                             # TODO: 400 Bad Request?
             raise HTTPStatusException(400)
         
         virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
@@ -240,7 +240,7 @@ class FileManagerServer(HTTPServer):
         if not request.request_line.method == 'POST':                                       # method should be POST
             raise HTTPStatusException(405)
         
-        if len(path) > 1 or not parameters.__contains__('path'):                            # TODO: 400 Bad Request?
+        if not parameters.__contains__('path'):                                             # TODO: 400 Bad Request?
             raise HTTPStatusException(400)
         
         virtual_path = parameters['path'].strip('/')                                        # target path (virtual)

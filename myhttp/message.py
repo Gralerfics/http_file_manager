@@ -5,7 +5,7 @@ from .exception import HTTPStatusException
 
 class HTTPUrl:
     path_pattern = re.compile(r'^/?([^?]*)(\?.*)?$') # separate path and params
-    params_pattern = re.compile(r'[\?&]([^=]+)=([^&]+)') # param key-value pairs
+    params_pattern = re.compile(r'[\?&]([^=]+)=([^&]*)') # param key-value pairs
     percent_encoding_pattern = re.compile(r'%([0-9a-fA-F]{2})') # percent encoding
     
     def __init__(self, path_list = [''], params = {}):
