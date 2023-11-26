@@ -6,18 +6,22 @@ from .exception import HTTPStatusException
 class HTTPUrl:
     path_pattern = re.compile(r'^/?([^?]*)(\?.*)?$') # separate path and params
     params_pattern = re.compile(r'[\?&]([^=]+)=([^&]+)') # param key-value pairs
+    percent_encoding_pattern = re.compile(r'%([0-9a-fA-F]{2})') # percent encoding
     
     def __init__(self, path_list = [''], params = {}):
         self.path_list = path_list # the last item is the file name, if path_list[-1] == '' means directory
         self.params = params
     
-    def serialize(self):
-        return '/' + '/'.join(self.path_list) + '?' + '&'.join([f'{key}={value}' for key, value in self.params.items()])
+    # def serialize(self):
+    #     # TODO: 对特殊字符进行 % 编码
+    #     return '/' + '/'.join(self.path_list) + '?' + '&'.join([f'{key}={value}' for key, value in self.params.items()])
     
     @classmethod
     def from_parsing(c, url):
-        path_match = c.path_pattern.match(url)
-
+        # decode percent encoding, TODO: 若带有 #, 浏览器会自动去除 # 后的内容，无法解决，除非修改文档 API，在此记录一下
+        decoded_url = c.percent_encoding_pattern.sub(lambda x: chr(int(x.group(1), 16)), url)
+        
+        path_match = c.path_pattern.match(decoded_url)
         if path_match:
             path = path_match.group(1)
             path_list = path.split('/') # [segment for segment in path.split('/') if segment]

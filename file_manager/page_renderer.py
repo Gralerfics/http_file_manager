@@ -15,6 +15,7 @@ from . import FileManagerServer
             ...
             **get_file_manager_rendering_extended_variables(server)
         })
+    大概就是所有请求的前端资源都会至少经过这些基本变量的渲染，用以保证前端可能使用到的 API 路径都是正确的（因为允许由用户修改各个 route 了）
 """
 def get_file_manager_rendering_extended_variables(server: FileManagerServer):
     return {
