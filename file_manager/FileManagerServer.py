@@ -326,10 +326,13 @@ class FileManagerServer(HTTPServer):
         return os.path.isfile(real_path)
 
     def belongs_to(self, virtual_path):
+        virtual_path = virtual_path.strip('/')
         if virtual_path == '':
             return None
         split = virtual_path.split('/')
-        return split[0] if self.is_exist(split[0]) and self.is_directory(split[0]) else None
+        return split[0]
+        # return split[0] if self.is_exist(split[0]) and self.is_directory(split[0]) else None
+            # TODO: 现在只管返回第一个就是了，不判断这是否是个用户目录
     
     def list_directory(self, path):
         real_path = self.root_dir + path.strip('/') + '/'
@@ -381,8 +384,10 @@ class FileManagerServer(HTTPServer):
         real_path = self.root_dir + virtual_path
         try:
             os.makedirs(real_path)
+        except FileNotFoundError:
+            raise HTTPStatusException(403) # TODO: 建立目录路径上存在同名文件导致建立失败会报这个错误，状态码待定
         except Exception:
-            raise HTTPStatusException(500) # TODO: unexpected os error
+            raise HTTPStatusException(500)
     
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path.strip('/') + '/' # guarantee that the path is end with '/'
