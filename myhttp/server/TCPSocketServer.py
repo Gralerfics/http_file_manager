@@ -109,5 +109,4 @@ class TCPSocketServer:
     def shutdown_connection(self, connection):
         connection_handler = self.connection_handlers_map.pop(connection)   # get and pop connection handler
         connection_handler.shutdown()                                       # shutdown connection handler
-        # TODO: 备注，这么写的话, 在关闭服务器后其它 client recv(x) 会一直收到 b'', 不会有异常
 
