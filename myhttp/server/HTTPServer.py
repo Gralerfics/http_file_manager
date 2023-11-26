@@ -103,6 +103,9 @@ class HTTPServer(TCPSocketServer):
             path <- ['part', 'of', 'GET', 'path', 'without', 'matched', 'route']
             parameters <- dict of GET parameters
             connection_handler <- connection handler object
+        
+        Also you can manually register handler like this:
+            server.route(path, methods)(func)
     """
     def route(self, path, methods = 'GET'):
         """

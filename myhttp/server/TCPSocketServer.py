@@ -26,6 +26,7 @@ class BaseConnectionHandlerClass:
         # to be overridden
         pass
     
+    """ Override """
     def send(self, data):
         log_print(f'Data to <{self.address[0]}:{self.address[1]}>: {data}', 'RAW_DATA')
         self.connection.send(data)

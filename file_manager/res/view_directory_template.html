@@ -14,7 +14,7 @@
 <body>
     <h1>File Manager</h1>
     <div>
-        <h2>Directory content of {{ path }}:</h2>
+        <h2>Directory content of {{ virtual_path }}:</h2>
         <ul id="directoryList"></ul>
     </div>
 
@@ -28,14 +28,14 @@
     </form>
 
     <script>
-        var list = {{ list_json }}
-        var path = "{{ path }}"
+        var list = {{ scan_list }}
+        var path = "{{ virtual_path }}"
         
         document.getElementById('uploadForm').addEventListener('submit', function (event) {
             event.preventDefault();
             uploadFile(path, document.getElementById('fileInput'));
         });
     </script>
-    <script src="/frontend_res/js/get_directory.js"></script>
+    <script src="{{ file_manager_res_route }}/js/view_directory.js"></script>
 </body>
 </html>

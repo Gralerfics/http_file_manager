@@ -1,4 +1,5 @@
 import threading
+import mimetypes
 import pickle
 import shutil
 import json
@@ -7,7 +8,9 @@ import os
 
 from myhttp.server import HTTPServer, HTTPConnectionHandler
 from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPBodyUtils, HTTPHeaderUtils, HTMLUtils, KeyUtils
+from myhttp.content import HTTPBodyUtils, HTTPHeaderUtils, HTMLUtils, KeyUtils, HTTPResponseGenerator
+
+from .page_renderer import *
 
 
 class UserManager:
@@ -109,12 +112,193 @@ class CookieManager:
         all the `path` (`<user>/<path>`) in this class is relative to `root_directory`
 """
 class FileManagerServer(HTTPServer):
-    root_dir = './data/'
-    res_dir = './res/'
-    reg_dir = './reg/'
+    """
+        Routes
+    """
     
-    def __init__(self, hostname, port, ConnectionHandlerClass = HTTPConnectionHandler):
+    def resource_handler(path, parameters, connection_handler):
+        request = connection_handler.last_request
+        server: FileManagerServer = connection_handler.server
+        
+        virtual_path = '/'.join(path)                                                       # target path (virtual)
+        
+        if not server.is_exist(virtual_path, resourse = True):                              # path not exist
+            raise HTTPStatusException(404)
+
+        if not server.is_file(virtual_path, resourse = True):                               # path is not a file
+            raise HTTPStatusException(400)
+        
+        connection_handler.send_response(HTTPResponseGenerator.by_file_path(
+            file_path = server.get_path(virtual_path, resourse = True),
+            version = request.request_line.version
+        ))
+    
+    def api_user_register(path, parameters, connection_handler):
+        request = connection_handler.last_request
+        server = connection_handler.server
+        
+        if len(path) > 2:
+            raise HTTPStatusException(400)
+        
+        # TODO: 后端 API 接口, POST, 注册用户
+            # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
+        pass
+
+    def fetch_handler(path, parameters, connection_handler):
+        request = connection_handler.last_request
+        server: FileManagerServer = connection_handler.server
+        
+        if not request.request_line.method == 'GET':                                        # method should be GET
+            raise HTTPStatusException(405)
+        
+        virtual_path = '/'.join(path)                                                       # target path (virtual)
+        
+        username, new_cookie = server.authenticate(connection_handler)                      # authenticate, TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
+        extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        
+        if not server.is_exist(virtual_path):                                               # path not exist
+            raise HTTPStatusException(404, extend_headers = extend_headers)
+        
+        if server.is_directory(virtual_path): # and path[-1] == '':                         # TODO: 这里关系到例如 localhost/user1/ 和 localhost/user1 的区别，目前是如果后者确实是目录，则忽略缺少斜杠的错误
+            html_body = server.directory_page(virtual_path)
+            connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+                body = html_body,
+                content_type = 'text/html',
+                version = request.request_line.version,
+                extend_headers = extend_headers
+            ), header_only = (request.request_line.method == 'HEAD'))
+        elif server.is_file(virtual_path): # path[-1] != '':                                # TODO: 同前
+            if parameters.get('chunked', '0') == '0':
+                # direct download
+                connection_handler.send_response(HTTPResponseGenerator.by_file_path(
+                    file_path = server.root_dir + virtual_path,
+                    version = request.request_line.version,
+                    extend_headers = extend_headers
+                ), header_only = (request.request_line.method == 'HEAD'))
+            else:
+                # chunked download
+                file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
+                content_disposition = 'inline'
+                if not file_type:
+                    file_type = 'application/octet-stream'
+                    content_disposition = 'attachment'
+                
+                extend_headers['Content-Disposition'] = f'{content_disposition}; filename="{path[-1]}"'
+                extend_headers['Transfer-Encoding'] = 'chunked'
+                connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+                    content_type = file_type,
+                    version = request.request_line.version,
+                    extend_headers = extend_headers
+                ), header_only = True)
+                if request.request_line.method != 'HEAD':
+                    with open(server.root_dir + virtual_path, 'rb') as f:
+                        while True:
+                            chunk_content = f.read(4096)
+                            if not chunk_content:
+                                connection_handler.send_chunk(b'')
+                                break
+                            connection_handler.send_chunk(chunk_content)
+        else:
+            raise HTTPStatusException(404, extend_headers = extend_headers)
+    
+    def upload_handler(path, parameters, connection_handler):
+        request = connection_handler.last_request
+        server: FileManagerServer = connection_handler.server
+        
+        if not request.request_line.method == 'POST':                                       # method should be POST
+            raise HTTPStatusException(405)
+        
+        if len(path) > 1 or not parameters.__contains__('path'):                            # TODO: 400 Bad Request?
+            raise HTTPStatusException(400)
+        
+        virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
+        located_user = server.belongs_to(virtual_path)                                      # target user
+        
+        username, new_cookie = server.authenticate(connection_handler)                      # authenticate
+        extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        if username != located_user:                                                        # wrong user
+            raise HTTPStatusException(403, extend_headers = extend_headers)
+        
+        if not server.is_exist(virtual_path):                                               # path not exist, TODO: setup directory?
+            server.mkdir(virtual_path)
+            # raise HTTPStatusException(404, extend_headers = extend_headers)
+        
+        if not server.is_directory(virtual_path):                                           # TODO: 必须为目录吧。
+            raise HTTPStatusException(403, extend_headers = extend_headers)
+        
+        server.upload_file(virtual_path, request)
+        
+        connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+            version = request.request_line.version,
+            extend_headers = extend_headers
+        ))
+
+    def delete_handler(path, parameters, connection_handler):
+        request = connection_handler.last_request
+        server: FileManagerServer = connection_handler.server
+        
+        if not request.request_line.method == 'POST':                                       # method should be POST
+            raise HTTPStatusException(405)
+        
+        if len(path) > 1 or not parameters.__contains__('path'):                            # TODO: 400 Bad Request?
+            raise HTTPStatusException(400)
+        
+        virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
+        located_user = server.belongs_to(virtual_path)                                      # target user
+        
+        username, new_cookie = server.authenticate(connection_handler)                      # authenticate
+        extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        if username != located_user:                                                        # wrong user
+            raise HTTPStatusException(403, extend_headers = extend_headers)
+        
+        if not server.is_exist(virtual_path):                                               # path not exist
+            raise HTTPStatusException(404, extend_headers = extend_headers)
+        
+        server.delete_file(virtual_path)                                                    # delele file or directory from disk
+        
+        connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+            version = request.request_line.version,
+            extend_headers = extend_headers
+        ))
+    
+    """
+        Initialization
+    """
+        
+    def join_absoluted_path(dir):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), dir)
+    
+    def regularize_route(route):
+        return '/' + route.strip('/')
+    
+    def __init__(
+        self, hostname, port, ConnectionHandlerClass = HTTPConnectionHandler,
+        root_dir = join_absoluted_path('data/'),
+        reg_dir = join_absoluted_path('reg/'),
+        res_route = '/file_manager_frontend_res',
+        api_route = '/file_manager_backend_api',
+        fetch_route = '/file_manager_fetch',
+        upload_route = '/file_manager_upload',
+        delete_route = '/file_manager_delete'
+    ):
         super().__init__(hostname, port, ConnectionHandlerClass)
+        
+        self.res_route = FileManagerServer.regularize_route(res_route)
+        self.api_route = FileManagerServer.regularize_route(api_route)
+        self.fetch_route = FileManagerServer.regularize_route(fetch_route)
+        self.upload_route = FileManagerServer.regularize_route(upload_route)
+        self.delete_route = FileManagerServer.regularize_route(delete_route)
+        
+        self.route(self.res_route, methods = 'GET')(FileManagerServer.resource_handler)
+        self.route(self.api_route + '/user_register', methods = 'POST')(FileManagerServer.api_user_register)
+        self.route(self.fetch_route, methods = ['GET', 'HEAD', 'POST'])(FileManagerServer.fetch_handler)
+        self.route(self.upload_route, methods = ['GET', 'HEAD', 'POST'])(FileManagerServer.upload_handler)
+        self.route(self.delete_route, methods = ['GET', 'HEAD', 'POST'])(FileManagerServer.delete_handler)
+        
+        self.root_dir = root_dir
+        self.reg_dir = reg_dir
+        self.res_dir = FileManagerServer.join_absoluted_path('res/') # absolute path
+        
         self.user_manager = UserManager(self.reg_dir + 'users.pkl')
         self.cookie_manager = CookieManager(self.reg_dir + 'cookies.pkl')
     
@@ -141,13 +325,6 @@ class FileManagerServer(HTTPServer):
         real_path = prefix + virtual_path
         return os.path.isfile(real_path)
 
-    def mkdir(self, virtual_path):
-        real_path = self.root_dir + virtual_path
-        try:
-            os.makedirs(real_path)
-        except Exception:
-            raise HTTPStatusException(500) # TODO: unexpected os error
-
     def belongs_to(self, virtual_path):
         if virtual_path == '':
             return None
@@ -161,7 +338,7 @@ class FileManagerServer(HTTPServer):
             return json.dumps(dir_list)
     
     """
-        Actions
+        Verification
     """
     
     def authenticate(self, connection_handler):
@@ -195,6 +372,17 @@ class FileManagerServer(HTTPServer):
         return (username, new_cookie)
             # if not authenicated, raise 401, no need to return
             # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization, otherwise None
+
+    """
+        Manipulations
+    """
+    
+    def mkdir(self, virtual_path):
+        real_path = self.root_dir + virtual_path
+        try:
+            os.makedirs(real_path)
+        except Exception:
+            raise HTTPStatusException(500) # TODO: unexpected os error
     
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path.strip('/') + '/' # guarantee that the path is end with '/'
@@ -239,23 +427,13 @@ class FileManagerServer(HTTPServer):
             # os.removedirs(real_path)
     
     """
-        Pages & Resources
+        Page Rendering
     """
     
     def error_page(self, code, desc):
-        # TODO: template
-        return f'<h1>{code} {desc}</h1>'
+        return get_error_page_rendered(code, desc, server = self)
     
     def directory_page(self, virtual_path):
-        # TODO: template
-            # 要求有 ./ ../ 和链接, 要有 400(?), 404(ok), 405(ok)
-        
-        with open(self.res_dir + 'get_directory.html', 'r') as f:
-            page_content = f.read()
-        page_content = HTMLUtils.render_template(page_content, {
-            'path': virtual_path,
-            'list_json': self.list_directory(virtual_path),
-        })
-        
-        return page_content
+        # TODO: 400 detection?
+        return get_directory_page_rendered(virtual_path, server = self)
 
