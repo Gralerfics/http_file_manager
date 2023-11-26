@@ -53,8 +53,8 @@ class HTTPServer(TCPSocketServer):
     http_version = 'HTTP/1.1'
     supported_methods = ['GET', 'HEAD', 'POST']
     
-    def __init__(self, hostname, port):
-        super().__init__(hostname, port, HTTPConnectionHandler)
+    def __init__(self, hostname, port, ConnectionHandlerClass = HTTPConnectionHandler):
+        super().__init__(hostname, port, ConnectionHandlerClass)
         self.http_route_tree = RouteTree()
         self.http_error_handlers = {}
     

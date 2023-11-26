@@ -2,11 +2,11 @@ import sys
 import argparse
 import mimetypes
 
+from myhttp.exception import HTTPStatusException
+from myhttp.server import HTTPServer, HTTPConnectionHandler, EncryptedHTTPConnectionHandler
+from myhttp.content import HTTPResponseGenerator
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
-
-from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPResponseGenerator
 
 
 """
@@ -16,10 +16,15 @@ def cli_parser():
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('--ip', '-i', type = str, default = '0.0.0.0')
     argument_parser.add_argument('--port', '-p', type = int, default = 80)
+    argument_parser.add_argument('--encrypted', '-e', type = bool, default = False)
     return argument_parser.parse_args()
 
 args = cli_parser()
-server = FileManagerServer(args.ip, args.port)
+server = FileManagerServer(
+    args.ip,
+    args.port,
+    ConnectionHandlerClass = HTTPConnectionHandler if not args.encrypted else EncryptedHTTPConnectionHandler
+)
 
 # TODO: to be removed
 # server.cookie_manager._write({})

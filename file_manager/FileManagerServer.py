@@ -5,7 +5,7 @@ import json
 import time
 import os
 
-from myhttp.server import HTTPServer
+from myhttp.server import HTTPServer, HTTPConnectionHandler
 from myhttp.exception import HTTPStatusException
 from myhttp.content import HTTPBodyUtils, HTTPHeaderUtils, HTMLUtils, KeyUtils
 
@@ -113,8 +113,8 @@ class FileManagerServer(HTTPServer):
     res_dir = './res/'
     reg_dir = './reg/'
     
-    def __init__(self, hostname, port):
-        super().__init__(hostname, port)
+    def __init__(self, hostname, port, ConnectionHandlerClass = HTTPConnectionHandler):
+        super().__init__(hostname, port, ConnectionHandlerClass)
         self.user_manager = UserManager(self.reg_dir + 'users.pkl')
         self.cookie_manager = CookieManager(self.reg_dir + 'cookies.pkl')
     

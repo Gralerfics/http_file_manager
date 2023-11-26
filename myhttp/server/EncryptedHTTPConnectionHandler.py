@@ -44,7 +44,7 @@ class RecvBufferManager:
         self.set_target(RecvBufferTargetType.MARKER, b'\r\n\r\n', RecvBufferState.HEADER)
 
 
-class HTTPConnectionHandler(BaseConnectionHandlerClass):
+class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
     recv_buffer_size = 4096
     
     def __init__(self, connection, server):
@@ -84,6 +84,9 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
     """
     def request_handler(self, request):
         self.last_request = request
+        
+        # TODO: 加密 here
+        log_print('EncryptedHTTPConnectionHandler.request_handler()', LogLevel.INFO)
         
         # add default Connection header
         if not request.headers.is_exist('Connection'):
