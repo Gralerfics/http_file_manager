@@ -128,7 +128,7 @@ class FileManagerServer(HTTPServer):
         if not server.is_file(virtual_path, resourse = True):                               # path is not a file
             raise HTTPStatusException(400)
         
-        response = get_resources_rendered(virtual_path, parameters, connection_handler)
+        response = get_resources_rendered(virtual_path, parameters.get('variables', {}), connection_handler, parameters.get('extend_headers', {}))
         connection_handler.send_response(response, header_only = (request.request_line.method == 'HEAD'))
     
     def api_user_register(path, parameters, connection_handler):
@@ -161,8 +161,11 @@ class FileManagerServer(HTTPServer):
             # TODO: 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
                 # 就是请求网页会慢一些，可能因为渲染过程
             FileManagerServer.resource_handler(['view_directory_template.html'], {
-                'virtual_path': virtual_path,
-                'scan_list': server.list_directory(virtual_path),
+                'variables': {
+                    'virtual_path': virtual_path,
+                    'scan_list': server.list_directory(virtual_path),
+                },
+                'extend_headers': extend_headers
             }, connection_handler)
         elif server.is_file(virtual_path): # path[-1] != '':
             if parameters.get('chunked', '0') == '0':

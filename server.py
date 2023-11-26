@@ -31,7 +31,7 @@ server = FileManagerServer(
     delete_route = '/delete'
 )
 # TODO: to be removed
-# server.cookie_manager._write({})
+server.cookie_manager._write({})
 
 
 """

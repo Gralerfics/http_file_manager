@@ -31,13 +31,14 @@ def get_file_manager_rendering_extended_variables(server: FileManagerServer):
     Pages & Resources
 """
 
-def get_resources_rendered(virtual_path, variables, connection_handler):
+def get_resources_rendered(virtual_path, variables, connection_handler, extend_headers = {}):
     server = connection_handler.server
     request = connection_handler.last_request
     
     response = HTTPResponseGenerator.by_file_path(
         file_path = server.get_path(virtual_path, resourse = True),
-        version = request.request_line.version
+        version = request.request_line.version,
+        extend_headers = extend_headers
     )
     
     response.modify_body(HTMLUtils.render_template(response.body.decode(), {
