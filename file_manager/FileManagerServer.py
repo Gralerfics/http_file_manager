@@ -109,14 +109,14 @@ class CookieManager:
 
 """
     FileManagerServer
-        all the `path` (`<user>/<path>`) in this class is relative to `root_directory`
+        all the `path` (`<user>/<path>`) in this class is relative to `root_dir`
 """
 class FileManagerServer(HTTPServer):
     """
         Routes
     """
     
-    def resource_handler(path, parameters, connection_handler):
+    def resource_handler(path, parameters, connection_handler): # parameters: dict -> variables to be rendered
         request = connection_handler.last_request
         server: FileManagerServer = connection_handler.server
         
@@ -128,10 +128,8 @@ class FileManagerServer(HTTPServer):
         if not server.is_file(virtual_path, resourse = True):                               # path is not a file
             raise HTTPStatusException(400)
         
-        connection_handler.send_response(HTTPResponseGenerator.by_file_path(
-            file_path = server.get_path(virtual_path, resourse = True),
-            version = request.request_line.version
-        ))
+        response = get_resources_rendered(virtual_path, parameters, connection_handler)
+        connection_handler.send_response(response, header_only = (request.request_line.method == 'HEAD'))
     
     def api_user_register(path, parameters, connection_handler):
         request = connection_handler.last_request
@@ -159,15 +157,14 @@ class FileManagerServer(HTTPServer):
         if not server.is_exist(virtual_path):                                               # path not exist
             raise HTTPStatusException(404, extend_headers = extend_headers)
         
-        if server.is_directory(virtual_path): # and path[-1] == '':                         # TODO: 这里关系到例如 localhost/user1/ 和 localhost/user1 的区别，目前是如果后者确实是目录，则忽略缺少斜杠的错误
-            html_body = server.directory_page(virtual_path)
-            connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-                body = html_body,
-                content_type = 'text/html',
-                version = request.request_line.version,
-                extend_headers = extend_headers
-            ), header_only = (request.request_line.method == 'HEAD'))
-        elif server.is_file(virtual_path): # path[-1] != '':                                # TODO: 同前
+        if server.is_directory(virtual_path): # and path[-1] == '':                         # 如果确实是目录，则忽略缺少末尾斜杠的错误
+            # TODO: 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
+                # 就是请求网页会慢一些，可能因为渲染过程
+            FileManagerServer.resource_handler(['view_directory_template.html'], {
+                'virtual_path': virtual_path,
+                'scan_list': server.list_directory(virtual_path),
+            }, connection_handler)
+        elif server.is_file(virtual_path): # path[-1] != '':
             if parameters.get('chunked', '0') == '0':
                 # direct download
                 connection_handler.send_response(HTTPResponseGenerator.by_file_path(
@@ -404,7 +401,7 @@ class FileManagerServer(HTTPServer):
                         for file in file_list:
                             filename = file.get('filename', None)
                             content = file.get('content', None)
-                            # TODO: 文件重名的处理？
+                            # 重名覆盖
                             if filename is not None and content is not None:
                                 try:
                                     with open(real_path + filename, 'wb') as f:
@@ -432,8 +429,4 @@ class FileManagerServer(HTTPServer):
     
     def error_page(self, code, desc):
         return get_error_page_rendered(code, desc, server = self)
-    
-    def directory_page(self, virtual_path):
-        # TODO: 400 detection?
-        return get_directory_page_rendered(virtual_path, server = self)
 

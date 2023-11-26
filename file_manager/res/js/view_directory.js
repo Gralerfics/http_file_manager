@@ -31,7 +31,7 @@ if (!window.location.pathname.endsWith('/')) {
 
 function deleteFile(path) {
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/delete?path=' + path, true);
+    xhr.open('POST', '{{ file_manager_delete_route }}?path=' + path, true);
 
     xhr.onload = function () {
         window.location.reload();
@@ -55,7 +55,7 @@ function uploadFile(path, fileInput) {
         formData.append('file', file);
 
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload?path=' + path, true);
+        xhr.open('POST', '{{ file_manager_upload_route }}?path=' + path, true);
 
         xhr.onload = function () {
             console.log('Upload successfully.');

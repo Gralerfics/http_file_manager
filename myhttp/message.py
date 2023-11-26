@@ -70,20 +70,21 @@ class HTTPStatusLine:
 
 class HTTPHeaders:
     def __init__(self, headers = {}):
-        self.headers: dict = headers
+        headers_lower = {key.lower(): value for key, value in headers.items()} # key is case-insensitive
+        self.headers: dict = headers_lower
     
     def is_exist(self, key):
-        # Key is case-insensitive
+        # key is case-insensitive
         key_lower = key.lower()
         return key_lower in self.headers
     
     def get(self, key):
-        # Key is case-insensitive
+        # key is case-insensitive
         key_lower = key.lower()
         return self.headers.get(key_lower, None)
 
     def set(self, key, value):
-        # Key is case-insensitive
+        # key is case-insensitive
         key_lower = key.lower()
         self.headers[key_lower] = value
     
@@ -97,7 +98,7 @@ class HTTPHeaders:
         for line in splitted:
             splitted = line.decode().split(':', 1) # TODO: value may contain ':', or use rsplit(': ')?
             if len(splitted) == 2:
-                # Key is case-insensitive, value is not certain
+                # key is case-insensitive, value is not certain
                 key_lower = splitted[0].lower().strip()
                 value = splitted[1].strip()
                 headers[key_lower] = value
@@ -120,6 +121,12 @@ class HTTPResponseMessage:
     def __init__(self, status_line, headers, body = b''):
         self.status_line = status_line
         self.headers = headers
+        self.body = body
+    
+    def modify_body(self, body):
+        if not isinstance(body, bytes):
+            body = body.encode()
+        self.headers.set('Content-Length', len(body))
         self.body = body
         
     def serialize_header(self):

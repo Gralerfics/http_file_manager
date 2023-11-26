@@ -1,6 +1,4 @@
-import os
-
-from myhttp.content import HTMLUtils
+from myhttp.content import HTMLUtils, HTTPResponseGenerator
 from . import FileManagerServer
 
 
@@ -28,6 +26,26 @@ def get_file_manager_rendering_extended_variables(server: FileManagerServer):
     }
 
 
+"""
+    Pages & Resources
+"""
+
+def get_resources_rendered(virtual_path, variables, connection_handler):
+    server = connection_handler.server
+    request = connection_handler.last_request
+    
+    response = HTTPResponseGenerator.by_file_path(
+        file_path = server.get_path(virtual_path, resourse = True),
+        version = request.request_line.version
+    )
+    
+    response.modify_body(HTMLUtils.render_template(response.body.decode(), {
+        **variables,
+        **get_file_manager_rendering_extended_variables(server)
+    }).encode())
+    
+    return response
+
 def get_error_page_rendered(code, desc, server: FileManagerServer):
     with open(server.res_dir + 'error_template.html', 'r') as f:
         page_content = f.read()
@@ -35,17 +53,6 @@ def get_error_page_rendered(code, desc, server: FileManagerServer):
     return HTMLUtils.render_template(page_content, {
         'error_code': code,
         'error_desc': desc,
-        **get_file_manager_rendering_extended_variables(server)
-    })
-
-
-def get_directory_page_rendered(virtual_path, server: FileManagerServer):
-    with open(server.res_dir + 'view_directory_template.html', 'r') as f:
-        page_content = f.read()
-    
-    return HTMLUtils.render_template(page_content, {
-        'virtual_path': virtual_path,
-        'scan_list': server.list_directory(virtual_path),
         **get_file_manager_rendering_extended_variables(server)
     })
 

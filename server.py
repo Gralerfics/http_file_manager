@@ -1,8 +1,7 @@
 import sys
 import argparse
 
-from myhttp.exception import HTTPStatusException
-from myhttp.server import HTTPServer, HTTPConnectionHandler, EncryptedHTTPConnectionHandler
+from myhttp.server import HTTPConnectionHandler, EncryptedHTTPConnectionHandler
 from myhttp.content import HTTPResponseGenerator
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
@@ -36,7 +35,7 @@ server = FileManagerServer(
 
 
 """
-    Routes
+    Error Handler
 """
 @server.errorhandler(0)
 def error_handler(code, desc, extend_headers, connection_handler):
