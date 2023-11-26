@@ -98,7 +98,8 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         except HTTPStatusException as e:
             self.error_handler(e.status_code, e.status_desc, e.extend_headers, request)
         except Exception:
-            self.error_handler(500, HTTPStatusException.default_status_description[500], e.extend_headers, request) # TODO: ensure the server will not crash due to one of the connections
+            # raise
+            self.error_handler(500, HTTPStatusException.default_status_description[500], {}, request) # TODO: ensure the server will not crash due to one of the connections
         
         # close connection if Connection: close
         if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':
