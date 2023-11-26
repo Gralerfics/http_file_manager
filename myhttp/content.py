@@ -62,7 +62,7 @@ class HTTPHeaderUtils:
             return (None, None)
     
     @staticmethod
-    def by_semicolon_equal_pairs(value):
+    def by_semicolon_equal_pairs(value, key_case_insensitive = True):
         """
             [Format] <key>=<value>; <key>; ...
             [Example Value] multipart/form-data; boundary=327c6dfd4efcbc1a8cb73dfbd452c924
@@ -75,7 +75,8 @@ class HTTPHeaderUtils:
             pair_splited = pair.split('=')
             if len(pair_splited) == 2:
                 key, value = pair_splited
-                dict[key.strip().lower()] = value.strip() # case-insensitive key
+                key = key.lower() if key_case_insensitive else key
+                dict[key.strip()] = value.strip()
             elif len(pair_splited) == 1:
                 key = pair_splited[0]
                 dict[key] = None
@@ -100,6 +101,62 @@ class HTTPHeaderUtils:
             [Return] content_type_dict
         """
         return HTTPHeaderUtils.by_semicolon_equal_pairs(value)
+
+
+class HTTPBodyUtils:
+    def __init__(self):
+        pass
+    
+    @staticmethod
+    def parse_multipart_form_data(body, boundary): # data, boundary are bytes
+        """
+            [Example Value]
+                --327c6dfd4efcbc1a8cb73dfbd452c924
+                Content-Disposition: form-data; name="file1"; filename="example.txt"
+                Content-Type: text/plain
+                
+                Content of file 1
+                --327c6dfd4efcbc1a8cb73dfbd452c924
+                Content-Disposition: form-data; name="file2"; filename="example2.txt"
+                Content-Type: text/plain
+                
+                Content of file 2
+                --327c6dfd4efcbc1a8cb73dfbd452c924--
+            [Return] file_list: [{name: str, filename: str, content_type: str, content: bytes}), ...], [] if no file, None if error
+                (the four items may not exist)
+        """
+        if not isinstance(body, bytes):
+            body = body.encode()
+        if not isinstance(boundary, bytes):
+            boundary = boundary.encode()
+        
+        file_list = []
+        parts = body.split(b'--' + boundary)
+        if len(parts) < 3:
+            return None
+        for part in parts[1:-1]: # ignore '' and '--\r\n' at the beginning and end
+            part = part[2:-2] # remove \r\n at the beginning and end
+            part_splited = part.split(b'\r\n\r\n', 1)
+            if len(part_splited) != 2:
+                # return None
+                continue
+            
+            header = HTTPHeaders.from_parsing(part_splited[0])
+            content = part_splited[1]
+            
+            file_item = {}
+            if header.get('Content-Disposition'):
+                content_disposition_dict = HTTPHeaderUtils.by_semicolon_equal_pairs(header.get('Content-Disposition'))
+                if content_disposition_dict.get('name', None):
+                    file_item['name'] = content_disposition_dict['name'].strip('"').strip("'")
+                if content_disposition_dict.get('filename', None):
+                    file_item['filename'] = content_disposition_dict['filename'].strip('"').strip("'")
+                if header.get('Content-Type'):
+                    file_item['content_type'] = header.get('Content-Type')
+                file_item['content'] = content
+            file_list.append(file_item)
+        
+        return file_list
 
 
 class HTTPResponseGenerator:

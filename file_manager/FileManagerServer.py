@@ -7,7 +7,7 @@ import os
 
 from myhttp.server import HTTPServer
 from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPResponseGenerator, HTTPHeaderUtils, HTMLUtils, KeyUtils
+from myhttp.content import HTTPBodyUtils, HTTPHeaderUtils, HTMLUtils, KeyUtils
 
 
 class UserManager:
@@ -141,6 +141,13 @@ class FileManagerServer(HTTPServer):
         real_path = prefix + virtual_path
         return os.path.isfile(real_path)
 
+    def mkdir(self, virtual_path):
+        real_path = self.root_dir + virtual_path
+        try:
+            os.makedirs(real_path)
+        except Exception:
+            raise HTTPStatusException(500) # TODO: unexpected os error
+
     def belongs_to(self, virtual_path):
         if virtual_path == '':
             return None
@@ -148,7 +155,7 @@ class FileManagerServer(HTTPServer):
         return split[0] if self.is_exist(split[0]) and self.is_directory(split[0]) else None
     
     def list_directory(self, path):
-        real_path = self.root_dir + path
+        real_path = self.root_dir + path.strip('/')
         with os.scandir(real_path) as it:
             return json.dumps([entry.name + ('/' if os.path.isdir(real_path + entry.name) else '') for entry in it])
     
@@ -172,6 +179,7 @@ class FileManagerServer(HTTPServer):
                         self.cookie_manager.remove(session_id)
                     else:
                         authenicated = True
+                        # TODO: 通过 cookie 访问需要更新 cookie 的 time_stamp 吗？
         # no cookie or cookie is invalid: check if there is valid authorization
         if not authenicated and request.headers.is_exist('Authorization'):
             username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization
@@ -188,18 +196,37 @@ class FileManagerServer(HTTPServer):
             # if authenicated, return (username, new_cookie); new_cookie is not None when authenicated by Authorization, otherwise None
     
     def upload_file(self, virtual_path, request):
-        real_path = self.root_dir + virtual_path
+        real_path = self.root_dir + virtual_path.strip('/') + '/' # guarantee that the path is end with '/'
         
+        parsed = False
+        file_errer = False
         if request.headers.is_exist('Content-Type'):
             content_type_dict = HTTPHeaderUtils.parse_content_type(request.headers.get('Content-Type'))
-            if 'multipart/form-data' in content_type_dict:
-                boundary = content_type_dict['boundary']
-        else:
+            mimetype_list = [key for key, value in content_type_dict.items() if value is None]
+            if not mimetype_list or len(mimetype_list) != 1:
+                raise HTTPStatusException(400)
+            mimetype = mimetype_list[0]
+            if mimetype == 'multipart/form-data':
+                boundary = content_type_dict.get('boundary', None)
+                if boundary:
+                    file_list = HTTPBodyUtils.parse_multipart_form_data(request.body, boundary)
+                    if file_list is not None:
+                        parsed = True
+                        for file in file_list:
+                            filename = file.get('filename', None)
+                            content = file.get('content', None)
+                            if filename is not None and content is not None:
+                                try:
+                                    with open(real_path + filename, 'wb') as f:
+                                        f.write(content)
+                                except Exception: # TODO: unexpected os error
+                                    file_errer = True
+            else:
+                pass # TODO: 其它 MIME 类型呢？
+        if file_errer:
+            raise HTTPStatusException(500)
+        if not parsed:
             raise HTTPStatusException(400) # TODO: Content-Type is required
-        
-        # TODO: 其它 MIME 类型呢？
-        # with open(real_path + , 'wb') as f:
-        #     f.write(request.body)
     
     def delete_file(self, virtual_path): # TODO: 会删用户自己的根目录吗？
         real_path = self.root_dir + virtual_path

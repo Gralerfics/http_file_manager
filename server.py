@@ -89,8 +89,9 @@ def upload_handler(path, parameters, connection_handler):
     if username != located_user:                                                        # wrong user
         raise HTTPStatusException(403, extend_headers = extend_headers)
     
-    if not server.is_exist(virtual_path):                                               # path not exist
-        raise HTTPStatusException(404, extend_headers = extend_headers)
+    if not server.is_exist(virtual_path):                                               # path not exist, TODO: setup directory?
+        server.mkdir(virtual_path)
+        # raise HTTPStatusException(404, extend_headers = extend_headers)
     
     if not server.is_directory(virtual_path):                                           # TODO: 必须为目录吧。
         raise HTTPStatusException(403, extend_headers = extend_headers)
@@ -124,7 +125,7 @@ def upload_handler(path, parameters, connection_handler):
     if not server.is_exist(virtual_path):                                               # path not exist
         raise HTTPStatusException(404, extend_headers = extend_headers)
     
-    server.delete_file(virtual_path)                                                    # delele file from disk
+    server.delete_file(virtual_path)                                                    # delele file or directory from disk
     
     connection_handler.send_response(HTTPResponseGenerator.by_content_type(
         version = request.request_line.version,
