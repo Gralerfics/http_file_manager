@@ -67,7 +67,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
     """
         Handle HTTP status errors from `connection`
     """
-    def error_handler(self, code, desc, extend_headers, request = None):
+    def error_handler(self, code, desc, extend_headers = {}, request = None):
         self.last_request = request
         
         if not self.server.http_error_handler(code, desc, extend_headers, self):

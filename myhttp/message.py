@@ -95,7 +95,8 @@ class HTTPHeaders:
         headers = {}
         splitted = lines.split(b'\r\n')
         for line in splitted:
-            splitted = line.decode().split(':')
+            splitted = line.decode().split(':', 1) # TODO: value may contain ':', or use rsplit(': ')?
+            print(splitted)
             if len(splitted) == 2:
                 # Key is case-insensitive, value is not certain
                 key_lower = splitted[0].lower().strip()

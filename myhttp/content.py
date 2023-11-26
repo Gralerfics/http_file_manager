@@ -72,7 +72,7 @@ class HTTPHeaderUtils:
         dict = {}
         for pair in pairs_splited:
             pair = pair.strip()
-            pair_splited = pair.split('=')
+            pair_splited = pair.split('=', 1)
             if len(pair_splited) == 2:
                 key, value = pair_splited
                 key = key.lower() if key_case_insensitive else key
