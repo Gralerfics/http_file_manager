@@ -21,6 +21,16 @@ class RecvBufferState(Enum):
     ALL = 4             # received all
 
 
+# TODO: 想重构：之前因为一个 connection 同时只处理一个 request，所以把 request 作为 connection 的属性；
+#       那么因为一个 request 应该只对应一个 response，所以可以把 response 也作为 connection 的属性？
+#       如此在 route 或 error 的 handler 中的 send_response 即可只缓存待发送的 response，留到 request_handler 最后再实际发送。
+#       这样的话可以把一些需要添加的 extend_headers 统一设置，不用到处混乱地进行参数传递。
+#           例如 resource_handler 中的 parameter 就可以只用于传递需要渲染的参数，不用存重定向来的 extend_headers。
+#           例如是上传下载操作中所有的 authentificate 之后都需要在响应中添加 Set-Cookie，可以统一存到 connection 中，不用每次发错误码之类还得加上。
+#           粗略感觉应该是可以去掉全局所有的 extend_headers 参数？
+#       以及这样的话发送 response 的 API 也更加合理。
+#       顺便这样的话需要再斟酌一下 TEchunked 的情况。
+#       确认：其他地方有改动吗？
 class RecvBufferManager:
     def __init__(self):
         self.concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()

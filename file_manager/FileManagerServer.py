@@ -116,7 +116,7 @@ class FileManagerServer(HTTPServer):
         Routes
     """
     
-    def resource_handler(path, parameters, connection_handler): # parameters: dict -> variables to be rendered
+    def resource_handler(path, parameters, connection_handler): # parameters['variables'] -> variables to be rendered
         request = connection_handler.last_request
         server: FileManagerServer = connection_handler.server
         
@@ -158,8 +158,7 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(404, extend_headers = extend_headers)
         
         if server.is_directory(virtual_path): # and path[-1] == '':                         # 如果确实是目录，则忽略缺少末尾斜杠的错误
-            # TODO: 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
-                # 就是请求网页会慢一些，可能因为渲染过程
+            # 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
             FileManagerServer.resource_handler(['view_directory_template.html'], {
                 'variables': {
                     'virtual_path': virtual_path,
