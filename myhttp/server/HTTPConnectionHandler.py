@@ -2,8 +2,7 @@ from enum import Enum
 
 from . import BaseConnectionHandlerClass
 from ..log import log_print, LogLevel
-from ..message import HTTPRequestLine, HTTPHeaders, HTTPRequestMessage
-from ..content import HTTPResponseGenerator
+from ..message import HTTPRequestLine, HTTPStatusLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage
 from ..exception import HTTPStatusException
 
 
@@ -21,16 +20,6 @@ class RecvBufferState(Enum):
     ALL = 4             # received all
 
 
-# TODO: 想重构：之前因为一个 connection 同时只处理一个 request，所以把 request 作为 connection 的属性；
-#       那么因为一个 request 应该只对应一个 response，所以可以把 response 也作为 connection 的属性？
-#       如此在 route 或 error 的 handler 中的 send_response 即可只缓存待发送的 response，留到 request_handler 最后再实际发送。
-#       这样的话可以把一些需要添加的 extend_headers 统一设置，不用到处混乱地进行参数传递。
-#           例如 resource_handler 中的 parameter 就可以只用于传递需要渲染的参数，不用存重定向来的 extend_headers。
-#           例如是上传下载操作中所有的 authentificate 之后都需要在响应中添加 Set-Cookie，可以统一存到 connection 中，不用每次发错误码之类还得加上。
-#           粗略感觉应该是可以去掉全局所有的 extend_headers 参数？
-#       以及这样的话发送 response 的 API 也更加合理。
-#       顺便这样的话需要再斟酌一下 TEchunked 的情况。
-#       确认：其他地方有改动吗？
 class RecvBufferManager:
     def __init__(self):
         self.concatenate_buffer = b'' # may contain part of next request at the end of each request, so only be cleared in __init__()
@@ -54,66 +43,124 @@ class RecvBufferManager:
         self.set_target(RecvBufferTargetType.MARKER, b'\r\n\r\n', RecvBufferState.HEADER)
 
 
+# TODO: 想重构：之前因为一个 connection 同时只处理一个 request，所以把 request 作为 connection 的属性；
+#       那么因为一个 request 应该只对应一个 response，所以可以把 response 也作为 connection 的属性？
+#       如此在 route 或 error 的 handler 中的 send_response 即可只缓存待发送的 response，留到 request_handler 最后再实际发送。
+#       这样的话可以把一些需要添加的 extend_headers 统一设置，不用到处混乱地进行参数传递。
+#           例如 resource_handler 中的 parameter 就可以只用于传递需要渲染的参数，不用存重定向来的 extend_headers。
+#           例如是上传下载操作中所有的 authentificate 之后都需要在响应中添加 Set-Cookie，可以统一存到 connection 中，不用每次发错误码之类还得加上。
+#           粗略感觉应该是可以去掉全局所有的 extend_headers 参数？
+#       以及这样的话发送 response 的 API 也更加合理。
+#       顺便这样的话需要再斟酌一下 TEchunked 的情况。
+#       确认：其他地方有改动吗？
+#       为什么直接让 route 或 error handler 返回 response？
+#           可以多次动态修改欲返回的 response；
+#           再比如在 route A 中需要添加一个 header，然后后续需要跳转到 route B 的处理，可以去掉递归回溯的处理：
+#               即如果 return response，需要 A 将 B 的 response 合并进来再返回，除去跳转还需要语句进行合并返回；
+#               如果是公用于 connection 的 response，那么重定向时接力传入 connection_handler 即可。
+#       EncryptedHTTPConnectionHandler 暂时先删除
 class HTTPConnectionHandler(BaseConnectionHandlerClass):
     recv_buffer_size = 4096
     
     def __init__(self, connection, server):
         super().__init__(connection, server)
+        
+        self.request = None # each connection will only handle one request at a time
         self.recv_buffer_manager = RecvBufferManager()
-        self.last_request = None # each connection will only handle one request at a time
+        
+        self.response = None
+        self.refresh_response()
+        self.chunked_launched = False # TODO: not allow to deactivate after activating and not allow to add Content-Length after activating.
+        self.chunked_finished = False
+        
         self.additional_data = {}
     
-    def send_response(self, response, header_only = False): # header_only for HEAD, 和 GET 的头完全一致即可，不用改变 Content-Length 等
-        if not header_only:
-            self.send(response.serialize())
-        else:
-            self.send(response.serialize_header())
+    """
+        Response Management
+    """
     
-    def send_chunk(self, chunk_content):
-        if not isinstance(chunk_content, bytes):
-            chunk_content = chunk_content.encode()
-        self.send(f'{len(chunk_content):X}\r\n'.encode() + chunk_content + b'\r\n')
+    def refresh_response(self):
+        self.response = HTTPResponseMessage(
+            HTTPStatusLine(self.server.http_version, 200, 'OK'),
+            HTTPHeaders({'Content-Length': '0'}),
+            b''
+        )
+    
+    def launch_chunked_transfer(self):
+        self.chunked_launched = True
+        self.response.headers.remove('Content-Length')
+        self.response.headers.set('Transfer-Encoding', 'chunked')
+        self.send(self.response.serialize_header())
+    
+    def chunked_transmit(self, chunk_content):
+        if self.chunked_launched:
+            if self.request.request_line.method != 'HEAD':
+                if not isinstance(chunk_content, bytes):
+                    chunk_content = chunk_content.encode()
+                self.send(f'{len(chunk_content):X}\r\n'.encode() + chunk_content + b'\r\n')
+            # else: TODO: waste
+        else:
+            raise HTTPStatusException(500, 'Chunked Transfer Not Launched') # TODO
+    
+    def finish_chunked_transfer(self):
+        if self.chunked_launched:
+            self.chunked_finished = True
+            if self.request.request_line.method != 'HEAD':
+                self.send(b'0\r\n\r\n')
+            # else: TODO: waste
+        else:
+            raise HTTPStatusException(500, 'Chunked Transfer Not Launched') # TODO
     
     """
         Handle HTTP status errors from `connection`
     """
-    def error_handler(self, code, desc, extend_headers = {}, request = None):
-        self.last_request = request
-        
-        if not self.server.http_error_handler(code, desc, extend_headers, self):
-            self.send_response(self.connection, HTTPResponseGenerator.by_content_type(
+    def error_handler(self, code, desc = None):
+        if not desc:
+            desc = HTTPStatusException.default_status_description[code]
+        if self.request:
+            self.response.update_version(self.request.request_line.version)
+        if not self.server.http_error_handler(code, desc, self):
+            self.response.update_status(code, desc)
+            self.response.update_by_content_type(
                 body = f'{code} {desc}',
                 content_type = 'text/plain',
-                version = self.server.http_version if not request else request.request_line.version,
-                status_code = code,
-                status_desc = desc
-            ))
+            )
     
     """
         Handle a single encapsulated request from `connection`
     """
-    def request_handler(self, request):
-        self.last_request = request
-        
+    def request_handler(self):
         # add default Connection header
-        if not request.headers.is_exist('Connection'):
+        if not self.request.headers.is_exist('Connection'):
             if self.server.http_version == 'HTTP/1.1':
-                request.headers.set('Connection', 'keep-alive')
+                self.request.headers.set('Connection', 'keep-alive')
             elif self.server.http_version == 'HTTP/1.0':
-                request.headers.set('Connection', 'close')
+                self.request.headers.set('Connection', 'close')
         
         # handle request
+        self.response.update_version(self.request.request_line.version)
         try:
             self.server.http_route_handler(self)
         except HTTPStatusException as e:
-            self.error_handler(e.status_code, e.status_desc, e.extend_headers, request)
+            self.error_handler(e.status_code, e.status_desc)
         except Exception:
             # raise
-            self.error_handler(500, HTTPStatusException.default_status_description[500], {}, request) # TODO: ensure the server will not crash due to one of the connections
+            self.error_handler(500) # TODO: ensure the server will not crash due to one of the connections
+        
+        # send prepared response
+        if not self.chunked_launched:
+            self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
+        else:
+            if not self.chunked_finished:
+                raise(500, 'Chunked Transfer Not Terminated')
         
         # close connection if Connection: close
-        if request.headers.is_exist('Connection') and request.headers.get('Connection').lower() == 'close':
+        if self.request.headers.is_exist('Connection') and self.request.headers.get('Connection').lower() == 'close':
             self.shutdown()
+        
+        # refresh response and request
+        self.request = None
+        self.refresh_response()
     
     """ Override """
     def handle(self):
@@ -181,7 +228,8 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
                             r.body += chunk_data
                             r.set_target(RecvBufferTargetType.MARKER, b'\r\n', RecvBufferState.CHUNK_SIZE)
                     else: # recv.state == RecvState.ALL:
-                        self.request_handler(HTTPRequestMessage(r.request_line_encapsulated, r.headers_encapsulated, r.body))
+                        self.request = HTTPRequestMessage(r.request_line_encapsulated, r.headers_encapsulated, r.body)
+                        self.request_handler()
                         r.prepare()
                 else:
                     break # latest target not finished, break the loop and wait for next peek_data

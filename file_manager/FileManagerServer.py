@@ -8,7 +8,7 @@ import os
 
 from myhttp.server import HTTPServer, HTTPConnectionHandler
 from myhttp.exception import HTTPStatusException
-from myhttp.content import HTTPBodyUtils, HTTPHeaderUtils, HTMLUtils, KeyUtils, HTTPResponseGenerator
+from myhttp.content import HTTPBodyUtils, HTTPHeaderUtils, HTMLUtils, KeyUtils
 
 from .page_renderer import *
 
@@ -116,9 +116,13 @@ class FileManagerServer(HTTPServer):
         Routes
     """
     
-    def resource_handler(path, parameters, connection_handler): # parameters['variables'] -> variables to be rendered
-        request = connection_handler.last_request
-        server: FileManagerServer = connection_handler.server
+    # 注意尽量不要在各种报错之前加有些 response 的部分
+        # 例如后面报错了，但前面已经添加了部分功能性 header，就会混乱
+        # 为什么不在错误处理中冲刷 response？因为 cookie 等仍然需要保留
+    def resource_handler(path, parameters, connection_handler): # parameters -> variables to be rendered
+        request = connection_handler.request
+        server = connection_handler.server
+        response = connection_handler.response
         
         virtual_path = '/'.join(path)                                                       # target path (virtual)
         
@@ -128,11 +132,14 @@ class FileManagerServer(HTTPServer):
         if not server.is_file(virtual_path, resourse = True):                               # path is not a file
             raise HTTPStatusException(400)
         
-        response = get_resources_rendered(virtual_path, parameters.get('variables', {}), connection_handler, parameters.get('extend_headers', {}))
-        connection_handler.send_response(response, header_only = (request.request_line.method == 'HEAD'))
+        response.update_by_file_path(server.get_path(virtual_path, resourse = True))
+        response.update_body(HTMLUtils.render_template(response.body.decode(), {
+            **parameters,
+            **get_file_manager_rendering_extended_variables(server)
+        }).encode())
     
     def api_user_register(path, parameters, connection_handler):
-        request = connection_handler.last_request
+        request = connection_handler.request
         server = connection_handler.server
         
         if len(path) > 2:
@@ -143,8 +150,9 @@ class FileManagerServer(HTTPServer):
         pass
 
     def fetch_handler(path, parameters, connection_handler):
-        request = connection_handler.last_request
-        server: FileManagerServer = connection_handler.server
+        request = connection_handler.request
+        server = connection_handler.server
+        response = connection_handler.response
         
         if not request.request_line.method == 'GET':                                        # method should be GET
             raise HTTPStatusException(405)
@@ -152,116 +160,103 @@ class FileManagerServer(HTTPServer):
         virtual_path = '/'.join(path)                                                       # target path (virtual)
         
         username, new_cookie = server.authenticate(connection_handler)                      # authenticate, TODO: 理解为虽然访问其它用户目录不需要验证，但无论如何必须处于登录状态
-        extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        if new_cookie:
+            response.update_header('Set-Cookie', f'session-id={new_cookie}')
         
         if not server.is_exist(virtual_path):                                               # path not exist
-            raise HTTPStatusException(404, extend_headers = extend_headers)
+            raise HTTPStatusException(404)
         
         if server.is_directory(virtual_path): # and path[-1] == '':                         # 如果确实是目录，则忽略缺少末尾斜杠的错误
             # 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
             FileManagerServer.resource_handler(['view_directory_template.html'], {
-                'variables': {
-                    'virtual_path': virtual_path,
-                    'scan_list': server.list_directory(virtual_path),
-                },
-                'extend_headers': extend_headers
+                'virtual_path': virtual_path,
+                'scan_list': server.list_directory(virtual_path),
             }, connection_handler)
         elif server.is_file(virtual_path): # path[-1] != '':
             if parameters.get('chunked', '0') == '0':
                 # direct download
-                connection_handler.send_response(HTTPResponseGenerator.by_file_path(
-                    file_path = server.root_dir + virtual_path,
-                    version = request.request_line.version,
-                    extend_headers = extend_headers
-                ), header_only = (request.request_line.method == 'HEAD'))
+                response.update_by_file_path(server.get_path(virtual_path))
             else:
-                # chunked download
+                # chunked download, TODO: 不用 update_by_file_path 为了效率，或许可以给这些函数加个 header_only？
                 file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
                 content_disposition = 'inline'
                 if not file_type:
                     file_type = 'application/octet-stream'
                     content_disposition = 'attachment'
                 
-                extend_headers['Content-Disposition'] = f'{content_disposition}; filename="{path[-1]}"'
-                extend_headers['Transfer-Encoding'] = 'chunked'
-                connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-                    content_type = file_type,
-                    version = request.request_line.version,
-                    extend_headers = extend_headers
-                ), header_only = True)
-                if request.request_line.method != 'HEAD':
-                    with open(server.root_dir + virtual_path, 'rb') as f:
-                        while True:
-                            chunk_content = f.read(4096)
-                            if not chunk_content:
-                                connection_handler.send_chunk(b'')
-                                break
-                            connection_handler.send_chunk(chunk_content)
+                response.update_header('Content-Type', file_type)
+                response.update_header('Content-Disposition', f'{content_disposition}; filename="{path[-1]}"')
+                
+                connection_handler.launch_chunked_transfer()
+                #if request.request_line.method != 'HEAD':
+                with open(server.get_path(virtual_path), 'rb') as f:
+                    while True:
+                        chunk_content = f.read(4096)
+                        if not chunk_content:
+                            connection_handler.finish_chunked_transfer()
+                            break
+                        connection_handler.chunked_transmit(chunk_content)
         else:
-            raise HTTPStatusException(404, extend_headers = extend_headers)
+            raise HTTPStatusException(404)
     
     def upload_handler(path, parameters, connection_handler):
-        request = connection_handler.last_request
-        server: FileManagerServer = connection_handler.server
+        request = connection_handler.request
+        server = connection_handler.server
+        response = connection_handler.response
         
         if not request.request_line.method == 'POST':                                       # method should be POST
             raise HTTPStatusException(405)
         
-        if not parameters.__contains__('path'):                                             # TODO: 400 Bad Request?
+        if not parameters.__contains__('path'):                                             # param path not exist
             raise HTTPStatusException(400)
         
-        virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
+        virtual_path = parameters.get('path').strip('/')                                    # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
         
         username, new_cookie = server.authenticate(connection_handler)                      # authenticate
-        extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        if new_cookie:
+            response.update_header('Set-Cookie', f'session-id={new_cookie}')
         if username != located_user:                                                        # wrong user
-            raise HTTPStatusException(403, extend_headers = extend_headers)
+            raise HTTPStatusException(403)
         
         if not server.is_exist(virtual_path):                                               # path not exist
             # 路径不存在时，如果是用户根目录，创建用户目录，否则报 404
             if virtual_path == username:
                 server.mkdir(virtual_path)
             else:
-                raise HTTPStatusException(404, extend_headers = extend_headers)
+                raise HTTPStatusException(404)
         
-        if not server.is_directory(virtual_path):                                           # TODO: 必须为目录吧。
-            raise HTTPStatusException(403, extend_headers = extend_headers)
+        if not server.is_directory(virtual_path):                                           # must be a directory
+            raise HTTPStatusException(403)
         
-        server.upload_file(virtual_path, request)
-        
-        connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-            version = request.request_line.version,
-            extend_headers = extend_headers
-        ))
+        server.upload_file(virtual_path, request)                                           # save uploaded file to disk
+        # response is 200 OK in default
 
     def delete_handler(path, parameters, connection_handler):
-        request = connection_handler.last_request
-        server: FileManagerServer = connection_handler.server
+        request = connection_handler.request
+        server = connection_handler.server
+        response = connection_handler.response
         
         if not request.request_line.method == 'POST':                                       # method should be POST
             raise HTTPStatusException(405)
         
-        if not parameters.__contains__('path'):                                             # TODO: 400 Bad Request?
+        if not parameters.__contains__('path'):                                             # param path not exist
             raise HTTPStatusException(400)
         
-        virtual_path = parameters['path'].strip('/')                                        # target path (virtual)
+        virtual_path = parameters.get('path').strip('/')                                        # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
         
         username, new_cookie = server.authenticate(connection_handler)                      # authenticate
-        extend_headers = {'Set-Cookie': f'session-id={new_cookie}'} if new_cookie else {}
+        if new_cookie:
+            response.update_header('Set-Cookie', f'session-id={new_cookie}')
         if username != located_user:                                                        # wrong user
-            raise HTTPStatusException(403, extend_headers = extend_headers)
+            raise HTTPStatusException(403)
         
         if not server.is_exist(virtual_path):                                               # path not exist
-            raise HTTPStatusException(404, extend_headers = extend_headers)
+            raise HTTPStatusException(404)
         
         server.delete_file(virtual_path)                                                    # delele file or directory from disk
-        
-        connection_handler.send_response(HTTPResponseGenerator.by_content_type(
-            version = request.request_line.version,
-            extend_headers = extend_headers
-        ))
+        # response is 200 OK in default
     
     """
         Initialization
@@ -347,7 +342,9 @@ class FileManagerServer(HTTPServer):
     """
     
     def authenticate(self, connection_handler):
-        request = connection_handler.last_request
+        request = connection_handler.request
+        response = connection_handler.response
+        
         authenicated = False
         new_cookie = None
         # there is a cookie: check if it is valid
@@ -372,7 +369,8 @@ class FileManagerServer(HTTPServer):
                     authenicated = True
         # neither is valid
         if not authenicated:
-            raise HTTPStatusException(401, extend_headers = {'WWW-Authenticate': 'Basic realm="Authorization Required"'})
+            response.update_header('WWW-Authenticate', 'Basic realm="Authorization Required"')
+            raise HTTPStatusException(401)
         # return username and new cookie
         return (username, new_cookie)
             # if not authenicated, raise 401, no need to return

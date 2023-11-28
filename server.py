@@ -2,7 +2,6 @@ import sys
 import argparse
 
 from myhttp.server import HTTPConnectionHandler, EncryptedHTTPConnectionHandler
-from myhttp.content import HTTPResponseGenerator
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
 
@@ -37,16 +36,15 @@ server.cookie_manager._write({}) # TODO: clear the cookies. to be removed?
     Error Handler
 """
 @server.errorhandler(0)
-def error_handler(code, desc, extend_headers, connection_handler):
-    request = connection_handler.last_request
-    connection_handler.send_response(HTTPResponseGenerator.by_content_type(
+def error_handler(code, desc, connection_handler):
+    request = connection_handler.request # might be None
+    response = connection_handler.response
+    
+    response.update_status(code, desc)
+    response.update_by_content_type(
         body = server.error_page(code, desc),
         content_type = 'text/html',
-        version = server.http_version if not request else request.request_line.version,
-        status_code = code,
-        status_desc = desc,
-        extend_headers = extend_headers
-    ))
+    )
 
 
 """

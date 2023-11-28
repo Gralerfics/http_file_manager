@@ -64,13 +64,13 @@ class HTTPServer(TCPSocketServer):
             desc <- str
             connection_handler <- HTTPConnectionHandler
     """
-    def http_error_handler(self, code, desc, extend_headers, connection_handler):
+    def http_error_handler(self, code, desc, connection_handler):
         if self.http_error_handlers:
             if self.http_error_handlers.__contains__(code):
-                self.http_error_handlers[code](desc, extend_headers, connection_handler)
+                self.http_error_handlers[code](desc, connection_handler)
                 return True
             elif self.http_error_handlers.__contains__(0):
-                self.http_error_handlers[0](code, desc, extend_headers, connection_handler)
+                self.http_error_handlers[0](code, desc, connection_handler)
                 return True
         return False
     
@@ -79,7 +79,7 @@ class HTTPServer(TCPSocketServer):
             connection_handler <- HTTPConnectionHandler
     """
     def http_route_handler(self, connection_handler):
-        request = connection_handler.last_request
+        request = connection_handler.request
         
         if not request.request_line.method in self.supported_methods:
             raise HTTPStatusException(405)

@@ -1,4 +1,6 @@
+import mimetypes
 import re
+import os
 
 from .exception import HTTPStatusException
 
@@ -95,6 +97,15 @@ class HTTPHeaders:
         key_lower = key.lower()
         self.headers[key_lower] = value
     
+    def remove(self, key):
+        # key is case-insensitive
+        key_lower = key.lower()
+        if self.headers.__contains__(key_lower):
+            del self.headers[key_lower]
+    
+    def clear(self):
+        self.headers.clear()
+    
     def serialize(self):
         return ''.join([f'{key}: {value}\r\n' for key, value in self.headers.items()]).encode()
     
@@ -130,10 +141,27 @@ class HTTPResponseMessage:
         self.headers = headers
         self.body = body
     
-    def modify_body(self, body):
+    def update_version(self, version):
+        self.status_line.version = version
+    
+    def update_status(self, code, desc = None):
+        if not desc:
+            desc = HTTPStatusException.default_status_description[code]
+        self.status_line.status_code = code
+        self.status_line.status_desc = desc
+    
+    def update_header(self, key, value):
+        self.headers.set(key, value)
+    
+    def update_headers(self, headers):
+        for key, value in headers.items():
+            self.headers.set(key, value)
+    
+    def update_body(self, body): # automatically set Content-Length if there has been one; TODO: chunked 不走这
         if not isinstance(body, bytes):
             body = body.encode()
-        self.headers.set('Content-Length', len(body))
+        if self.headers.is_exist('Content-Length'):
+            self.headers.set('Content-Length', len(body))
         self.body = body
         
     def serialize_header(self):
@@ -141,4 +169,31 @@ class HTTPResponseMessage:
     
     def serialize(self):
         return self.serialize_header() + self.body
+    
+    """
+        Generating
+    """
+    
+    def update_by_content_type(self, body = b'', content_type = 'text/plain'):
+        if not isinstance(body, bytes):
+            body = body.encode()
+        
+        self.update_header('Content-Type', content_type)
+        self.update_header('Content-Length', str(len(body)))
+        self.update_body(body)
+    
+    def update_by_file_path(self, file_path, use_mime = True):
+        with open(file_path, 'rb') as f:
+            body = f.read()
+        if use_mime:
+            content_type = mimetypes.guess_type(file_path)[0]
+            content_disposition = 'inline'
+        else:
+            content_type = 'application/octet-stream'
+            content_disposition = 'attachment'
+        
+        self.update_header('Content-Type', content_type)
+        self.update_header('Content-Length', str(len(body)))
+        self.update_header('Content-Disposition', f'{content_disposition}; filename="{os.path.basename(file_path)}"')
+        self.update_body(body)
 
