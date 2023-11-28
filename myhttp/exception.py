@@ -14,8 +14,7 @@ class HTTPStatusException(Exception):
         503: 'Service Temporarily Unavailable'
     }
     
-    def __init__(self, status_code, status_desc = None, extend_headers = {}):
+    def __init__(self, status_code, status_desc = None):
         self.status_code = status_code
         self.status_desc = status_desc if status_desc else self.default_status_description[status_code]
-        self.extend_headers = extend_headers
 
