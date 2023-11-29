@@ -11,7 +11,8 @@ from ..exception import HTTPStatusException
 class RouteTree:
     class Node:
         def __init__(self):
-            self.funcs = {}
+            self.priority = {} # method -> priority; only when there is a func, there is a priority (>=0)
+            self.funcs = {} # method -> func
             self.children = {}
         
         def __str__(self):
@@ -20,19 +21,23 @@ class RouteTree:
     def __init__(self):
         self.tree = RouteTree.Node()
 
-    def extend(self, path_list, func, methods):
+    def extend(self, path_list, func, methods: list[str], priority: list[int]):
         # path is case-sensitive
         node = self.tree
         for path in path_list:
             if not path: # if path == '', do not go deeper
                 break
-            if not node.children.__contains__(path): # TODO: 后定义的不覆盖先定义的
+            if not node.children.__contains__(path):
                 node.children[path] = RouteTree.Node()
             node = node.children[path]
-        if type(methods) == str:
-            methods = [methods]
-        for method in methods:
-            node.funcs[method] = func
+        # if type(methods) == str:
+        #     methods = [methods]
+        # if type(priority) == int:
+        #     priority = [priority]
+        for method, prior in zip(methods, priority):
+            if prior > node.priority.get(method, -1): # if priority is higher (>) than the previous one or there is no previous one, replace it
+                node.priority[method] = prior
+                node.funcs[method] = func
 
     def search(self, path_list, method):
         node = self.tree
@@ -107,12 +112,19 @@ class HTTPServer(TCPSocketServer):
         Also you can manually register handler like this:
             server.route(path, methods)(func)
     """
-    def route(self, path, methods = 'GET'):
+    def route(self, path, methods = ['GET'], priority = None): # TODO: priority not tested
         """
-            func(path, parameters, connection_handler)
+            methods = ['A', 'B', 'C'] -> priority = [x, y, z]
         """
+        if type(methods) == str:
+            methods = [methods]
+        if not priority:
+            priority = [0] * len(methods)
+        
+        assert len(methods) == len(priority)
+        
         def wrapper(func):
-            self.http_route_tree.extend(HTTPUrl.from_parsing(path).path_list, func, methods)
+            self.http_route_tree.extend(HTTPUrl.from_parsing(path).path_list, func, methods, priority)
             return func
         return wrapper
 
