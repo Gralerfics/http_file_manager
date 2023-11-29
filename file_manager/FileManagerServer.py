@@ -117,8 +117,9 @@ class FileManagerServer(HTTPServer):
     """
     
     # 注意尽量不要在各种报错之前加有些 response 的部分
-        # 例如后面报错了，但前面已经添加了部分功能性 header，就会混乱
-        # 为什么不在错误处理中冲刷 response？因为 cookie 等仍然需要保留
+        # 例如后面报错了，但前面添加的部分功能性 header 没有被错误页的 header 覆盖掉，有小概率会混乱
+        # 为什么不在错误处理中冲刷 response？因为 cookie 等仍然需要保留，header 类型太多不方便考虑所有情况
+        # 有必要的话调用者可以在 errorhandler route 中自行冲刷
     def resource_handler(path, parameters, connection_handler): # parameters -> variables to be rendered
         request = connection_handler.request
         server = connection_handler.server
@@ -130,7 +131,7 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(404)
 
         if not server.is_file(virtual_path, resourse = True):                               # path is not a file
-            raise HTTPStatusException(400)
+            raise HTTPStatusException(400, 'Resource Not File')
         
         response.update_by_file_path(server.get_path(virtual_path, resourse = True))
         response.update_body(HTMLUtils.render_template(response.body.decode(), {
@@ -142,8 +143,8 @@ class FileManagerServer(HTTPServer):
         request = connection_handler.request
         server = connection_handler.server
         
-        if len(path) > 2:
-            raise HTTPStatusException(400)
+        if len(path) > 0:
+            raise HTTPStatusException(404)
         
         # TODO: 后端 API 接口, POST, 注册用户
             # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
@@ -163,7 +164,7 @@ class FileManagerServer(HTTPServer):
         if new_cookie:
             response.update_header('Set-Cookie', f'session-id={new_cookie}')
         
-        if not server.is_exist(virtual_path):                                               # path not exist
+        if not server.is_exist(virtual_path):                                               # path not exist, wrong path like `/abc/def.jpg/` (when `def.jpg` is in fact a file) will failed in this step
             raise HTTPStatusException(404)
         
         if server.is_directory(virtual_path): # and path[-1] == '':                         # 如果确实是目录，则忽略缺少末尾斜杠的错误
@@ -188,7 +189,8 @@ class FileManagerServer(HTTPServer):
                 response.update_header('Content-Disposition', f'{content_disposition}; filename="{path[-1]}"')
                 
                 connection_handler.launch_chunked_transfer()
-                #if request.request_line.method != 'HEAD':
+                # if request.request_line.method != 'HEAD':
+                # TODO: threading transmitting?
                 with open(server.get_path(virtual_path), 'rb') as f:
                     while True:
                         chunk_content = f.read(4096)
@@ -208,7 +210,7 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(405)
         
         if not parameters.__contains__('path'):                                             # param path not exist
-            raise HTTPStatusException(400)
+            raise HTTPStatusException(400, 'Param Path Not Exist')
         
         virtual_path = parameters.get('path').strip('/')                                    # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
@@ -226,8 +228,8 @@ class FileManagerServer(HTTPServer):
             else:
                 raise HTTPStatusException(404)
         
-        if not server.is_directory(virtual_path):                                           # must be a directory
-            raise HTTPStatusException(403)
+        if not server.is_directory(virtual_path):                                           # must be a directory, TODO: which code
+            raise HTTPStatusException(400, 'Target Path Not Directory')
         
         server.upload_file(virtual_path, request)                                           # save uploaded file to disk
         # response is 200 OK in default
@@ -241,7 +243,7 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(405)
         
         if not parameters.__contains__('path'):                                             # param path not exist
-            raise HTTPStatusException(400)
+            raise HTTPStatusException(400, 'Param Path Not Exist')
         
         virtual_path = parameters.get('path').strip('/')                                        # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
@@ -380,6 +382,7 @@ class FileManagerServer(HTTPServer):
         Manipulations
     """
     
+    # TODO: to be checked
     def mkdir(self, virtual_path):
         real_path = self.root_dir + virtual_path
         try:
@@ -389,6 +392,7 @@ class FileManagerServer(HTTPServer):
         except Exception:
             raise HTTPStatusException(500)
     
+    # TODO: to be checked
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path.strip('/') + '/' # guarantee that the path is end with '/'
         
@@ -423,7 +427,8 @@ class FileManagerServer(HTTPServer):
         if not parsed:
             raise HTTPStatusException(400) # TODO: Content-Type is required
     
-    def delete_file(self, virtual_path): # TODO: 用户自己根根目录的处理
+    # TODO: to be checked
+    def delete_file(self, virtual_path):
         real_path = self.root_dir + virtual_path
         if os.path.isfile(real_path):
             os.remove(real_path)

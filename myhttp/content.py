@@ -1,9 +1,8 @@
 import re
 import os
 import base64
-import mimetypes
 
-from .message import HTTPResponseMessage, HTTPStatusLine, HTTPHeaders
+from .message import HTTPHeaders
 from .exception import HTTPStatusException
 
 
