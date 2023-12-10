@@ -168,16 +168,20 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(404)
         
         if server.is_directory(virtual_path): # and path[-1] == '':                         # 如果确实是目录，则忽略缺少末尾斜杠的错误
-            # 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
-            FileManagerServer.resource_handler(['view_directory_template.html'], {
-                'virtual_path': virtual_path,
-                'scan_list': server.list_directory(virtual_path),
-            }, connection_handler)
-        elif server.is_file(virtual_path): # path[-1] != '':
-            if parameters.get('chunked', '0') == '0':
-                # direct download
-                response.update_by_file_path(server.get_path(virtual_path))
+            if parameters.get('SUSTech-HTTP', '0') != '0':
+                # SUSTech-HTTP == 1, return json list
+                response.update_by_content_type(
+                    body = server.list_directory(virtual_path),
+                    content_type = 'application/json',
+                )
             else:
+                # SUSTech-HTTP != 1, return html page
+                FileManagerServer.resource_handler(['view_directory_template.html'], {      # 把对目录的 GET 请求视作对目录下的 view_directory_template.html 的资源请求，重定向到资源渲染器
+                    'virtual_path': virtual_path,
+                    'scan_list': server.list_directory(virtual_path),
+                }, connection_handler)
+        elif server.is_file(virtual_path): # path[-1] != '':
+            if parameters.get('chunked', '0') == '1':
                 # chunked download, TODO: 不用 update_by_file_path 为了效率，或许可以给这些函数加个 header_only？
                 file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
                 content_disposition = 'inline'
@@ -198,6 +202,12 @@ class FileManagerServer(HTTPServer):
                             connection_handler.finish_chunked_transfer()
                             break
                         connection_handler.chunked_transmit(chunk_content)
+            elif request.headers.is_exist('Range'):
+                # range download, TODO
+                pass
+            else:
+                # direct download
+                response.update_by_file_path(server.get_path(virtual_path))
         else:
             raise HTTPStatusException(404)
     

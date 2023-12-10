@@ -4,12 +4,9 @@
 
 **Submit deadline: 2023/12/31 23:59:59**
 
-**Last Update: 2023/11/22**
+**Last Update: 2023/11/29**
 
-> Update log:
->
-> - Score composition of each part
-> - Requirement of section "5. Chunked Transfer"
+[(Refer to update log)]([Leosang-lx/SUSTech-CS305-2023Fall: The repository for SUSTech-CS305-2023Fall course project (github.com)](https://github.com/Leosang-lx/SUSTech-CS305-2023Fall))
 
 
 
@@ -163,18 +160,23 @@ In this part, you are required to implement a basic **directory viewer** and pro
 
 On the server side, all the files will be stored in the directory `/data` **under the root directory of your project**. Each time a client send a request with URL corresponding to a valid path in the server, the server will reply with a `html` page showing the files and directories of the current path or the content of the corresponding file according to path in the server.
 
-**Task**: Implement a web **API for clients to view and download files**, so that a client can view the list of directory or download certain file by sending **GET** request to `http://localhost:8080/[access_path]`, where the `access_path` is the relative path under the `/data/` folder in the root directory of your project. The corresponding headers including `Content-Type` and `Content-Length` should be correctly derived by the file. You can refer to [Media Types (iana.org)](https://www.iana.org/assignments/media-types/media-types.xhtml) for more details of Media Types.
+**Task**: Implement a web **API for clients to view and download files**, so that a client can view the list of directory or download certain file by sending **GET** request to `http://localhost:8080/[access_path]?SUSTech-HTTP=[01]`, where the `access_path` is the relative path under the `/data/` folder in the root directory of your project. The corresponding headers including `Content-Type` and `Content-Length` should be correctly derived by the file. You can refer to [Media Types (iana.org)](https://www.iana.org/assignments/media-types/media-types.xhtml) for more details of Media Types.
+
+If the requested path is a **folder**, the query parameter `SUSTech-HTTP=[01]` is **required** for server switch between reply in `html` page or directory meta data. The server should response with the `html` page when `SUSTech-HTTP=0`, and response with list of files under the requested directory when `SUSTech-HTTP=1`.
+
+If the requested path is a **file**, server should simply ignore any provided query parameters and response with the binary file content.
 
 The following are examples that client sends a **valid** request to server, when server is running on `localhost:8080`. In these cases, server should provide users with specified services correctly and return **200 OK**.
 
-You can refer to the **`html` template** by running `python -m http.server` on your computer and request to `http://localhost:[port]` on your browser.
+- When a client wants to view the files under the directory `[project_root_dir]/data/11912113/`, it can directly send a HTTP request using **GET** method with URL `http://localhost:8080/11912113/?SUSTech-HTTP=0` on your browser, then server will response with a `html` file showing file tree of the current directory as follows and return **200 OK**:![File_list](File_list.png)where `/` and `../` refers to the root directory and above directory of the current. `123.png`, `abc.py`,`favicon.ico` are files and `666/` refers to a folder in the current directory.
+- When a client sends a **GET** request to URL `http://localhost:8080/11912113/?SUSTech-HTTP=1`, server will simply response with the set of `["123.png", "666/", "abc.py", "favicon.ico"]` in this case.
+- Then if you click the `123.png` on above `html` page (with corresponding path `[project_root_dir/data/11912113/123.png]` on server) on the browser or send **GET** request to URL `http://localhost:8080/11912113/123.png`, the server will response with the binary content of the file `123.png` and return **200 OK**.
 
-- When a client wants to view the files under the directory `[project_root_dir]/data/11912113/`, it can directly send a HTTP request using **GET** method with URL `http://localhost:8080/11912113/` on your browser, then server will response with a `html` file showing file tree of the current directory as follows and return **200 OK**:![File_list](File_list.png)where `/` and `../` refers to the root directory and above directory of the current. `123.png`, `abc.py`,`favicon.ico` are files and `666/` refers to a folder in the current directory.
-- Then if you click `123.png` on above `html` page (with corresponding path `[project_root_dir/data/11912113/123.png]` on server) on the browser or send **GET** request to URL `http://localhost:8080/11912113/123.png`, the server will response with the binary content of the file `123.png` and return **200 OK**.
+You can refer to the **`html` template** by running `python -m http.server` on your computer and request to `http://localhost:[port]` on your browser, or use your own template.
 
 **Notice that** your server should also handle the **invalid requests** from clients. Following are some invalid cases: 
 
-- If the format of the request URL or the query parameters are invalid, server should return **400 Bad Request**.
+- If the format of the request URL or the required query parameters are invalid, server should return **400 Bad Request**.
 - If the request URL does not exist in your server, server should return **404 Not Found** (html page?).
 - If the client access the file-getting API with other methods instead of **GET** method, the server should return **405 Method Not Allowed**.
 
@@ -194,6 +196,7 @@ Each user will have their own user directory named by their **username** on the 
 
 You should properly handle **invalid** requests like the following cases (for cases of user "11912113"):
 
+- If the required query parameter `path=xxx` is not provided, server should return **400 Bad Request**.
 - If there is no authorization information inside the HTTP request, or the authorization is invalid for server to accept, server should return **401 Unauthorized**.
 - If the authorization information is not the user "11912113", this request is also **invalid** since there is no permission for other user to upload file to `/data/11912113/`, and server should return **403 Forbidden**.
 - If the target directory to upload file to does not exist in the server, the server should return **404 Not Found**.
@@ -209,6 +212,7 @@ Same as file-uploading, each user can only delete files under their user directo
 
 You should properly handle invalid requests like the following cases (also for the cases of user "11912113"):
 
+- If the required query parameter `path=xxx` is not provided, server should return **400 Bad Request**.
 - If there is no authorization information inside the HTTP request, or the authorization is invalid for server to accept, server should return **401 Unauthorized**.
 - If the authorization information is not the user "11912113", this request is also **invalid** since there is no permission for other user to delete files in `/data/11912113/`, and server should return **403 Forbidden**.
 - If the target directory to upload file to does not exist in the server, the server should return **404 Not Found**.

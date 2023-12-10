@@ -68,6 +68,7 @@ class TCPSocketServer:
             
             # register welcome socket
             self.selector.register(self.welcome_socket, selectors.EVENT_READ)
+            log_print(f'Server is listening on {self.hostname}:{self.port}', 'INFO')
             
             # serve
             while not self.shutdown_signal:
