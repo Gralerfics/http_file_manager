@@ -181,14 +181,16 @@ class FileManagerServer(HTTPServer):
                     'scan_list': server.list_directory(virtual_path),
                 }, connection_handler)
         elif server.is_file(virtual_path): # path[-1] != '':
+            # file type
+            file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
+            content_disposition = 'inline'
+            if not file_type:
+                file_type = 'application/octet-stream'
+                content_disposition = 'attachment'
+            
+            # download type
             if parameters.get('chunked', '0') == '1':
                 # chunked download, TODO: 不用 update_by_file_path 为了效率，或许可以给这些函数加个 header_only？
-                file_type, file_encoding = mimetypes.guess_type(server.root_dir + virtual_path)
-                content_disposition = 'inline'
-                if not file_type:
-                    file_type = 'application/octet-stream'
-                    content_disposition = 'attachment'
-                
                 response.update_header('Content-Type', file_type)
                 response.update_header('Content-Disposition', f'{content_disposition}; filename="{path[-1]}"')
                 
@@ -202,9 +204,29 @@ class FileManagerServer(HTTPServer):
                             connection_handler.finish_chunked_transfer()
                             break
                         connection_handler.chunked_transmit(chunk_content)
-            elif request.headers.is_exist('Range'):
-                # range download, TODO
-                pass
+            elif request.headers.is_exist('Range'): # TODO: 目录页面需要支持 Range 吗？需要的话还得放到外面
+                # range download
+                with open(server.get_path(virtual_path), 'rb') as f: # TODO: 不全部读入，按照 Range 需求移动文件指针
+                    file = f.read()
+                    file_length = len(file)
+                
+                ranges = HTTPHeaderUtils.parse_range(request.headers.get('Range'), content_length = file_length)
+                if ranges:
+                    response.update_status(206)
+                    if len(ranges) == 1:
+                        response.update_header('Content-Type', file_type)
+                        response.update_body(file[ranges[0][0] : (ranges[0][1] + 1)])
+                    else:
+                        boundary = KeyUtils.random_key()
+                        response.update_header('Content-Type', f'multipart/byteranges; boundary={boundary}')
+                        body = f'--{boundary}'.encode()
+                        for r in ranges:
+                            body += f'\r\nContent-Type: {file_type}\r\n'.encode()
+                            body += f'Content-Range: bytes {r[0]}-{r[1]}/{file_length}\r\n\r\n'.encode()
+                            body += file[r[0] : (r[1] + 1)]
+                            body += f'\r\n--{boundary}'.encode()
+                        body += b'--\r\n'
+                        response.update_body(body)
             else:
                 # direct download
                 response.update_by_file_path(server.get_path(virtual_path))

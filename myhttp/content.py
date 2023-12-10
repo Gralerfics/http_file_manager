@@ -100,6 +100,47 @@ class HTTPHeaderUtils:
             [Return] content_type_dict
         """
         return HTTPHeaderUtils.by_semicolon_equal_pairs(value)
+    
+    @staticmethod
+    def parse_range(value, content_length):
+        """
+            [Format] Range: <unit>=<range-start>-[<range-end>], -<range-end>
+            [Example Value] bytes=0-0,3-20,16-22,-10,60-
+            [Return] ranges: [(left, right), ...] (right is None if not specified)
+        """
+        if not value.startswith('bytes='): # TODO: only support bytes now
+            return None
+        value = value[6:]
+        ranges = []
+        try:
+            for range in value.split(','):
+                range = range.strip()
+                if range.startswith('-'):
+                    left = None
+                    right = int(range[1:])
+                elif '-' in range:
+                    left, right = range.split('-', 1)
+                    left = int(left)
+                    right = int(right) if right else None
+                else:
+                    raise HTTPStatusException(416)
+                
+                if left is None and right is None:
+                    raise HTTPStatusException(416)
+                
+                if left is None:
+                    left = content_length - right
+                    right = content_length - 1
+                elif right is None:
+                    right = content_length - 1
+                
+                if left > right or left >= content_length or right >= content_length:
+                    raise HTTPStatusException(416)
+                
+                ranges.append((left, right))
+        except ValueError:
+            raise HTTPStatusException(416) # from int()
+        return ranges
 
 
 class HTTPBodyUtils:
