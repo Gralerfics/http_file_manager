@@ -108,9 +108,12 @@ class HTTPHeaderUtils:
             [Example Value] bytes=0-0,3-20,16-22,-10,60-
             [Return] ranges: [(left, right), ...] (right is None if not specified)
         """
-        if not value.startswith('bytes='): # TODO: only support bytes now
-            return None
-        value = value[6:]
+        if not '=' in value:
+            unit = 'bytes'
+            value = value.strip()
+        else:
+            unit, value = value.split('=', 1)
+            unit = unit.strip().lower()
         ranges = []
         try:
             for range in value.split(','):
@@ -140,7 +143,7 @@ class HTTPHeaderUtils:
                 ranges.append((left, right))
         except ValueError:
             raise HTTPStatusException(416) # from int()
-        return ranges
+        return ranges, unit
 
 
 class HTTPBodyUtils:

@@ -187,6 +187,7 @@ class FileManagerServer(HTTPServer):
             if not file_type:
                 file_type = 'application/octet-stream'
                 content_disposition = 'attachment'
+            response.update_header('Accept-Ranges', 'bytes') # TODO
             
             # download type
             if parameters.get('chunked', '0') == '1':
@@ -210,11 +211,14 @@ class FileManagerServer(HTTPServer):
                     file = f.read()
                     file_length = len(file)
                 
-                ranges = HTTPHeaderUtils.parse_range(request.headers.get('Range'), content_length = file_length)
+                ranges, unit = HTTPHeaderUtils.parse_range(request.headers.get('Range'), content_length = file_length)
+                if unit != 'bytes':
+                    raise HTTPStatusException(416) # TODO: only support bytes now
                 if ranges:
                     response.update_status(206)
                     if len(ranges) == 1:
                         response.update_header('Content-Type', file_type)
+                        response.update_header('Content-Range', f'bytes {ranges[0][0]}-{ranges[0][1]}/{file_length}')
                         response.update_body(file[ranges[0][0] : (ranges[0][1] + 1)])
                     else:
                         boundary = KeyUtils.random_key()
