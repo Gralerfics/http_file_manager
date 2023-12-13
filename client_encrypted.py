@@ -39,10 +39,49 @@ request = HTTPRequestMessage(
 )
 
 client_socket.send(request.serialize())
+server_message = HTTPResponseMessage.from_parsing(client_socket.recv(1024))
+rsa_public_key = server_message.body
+print("RSA Public Key:", rsa_public_key)
+
+aes_key = get_random_bytes(16)
+aes_iv = get_random_bytes(16)
+print("AES Key:", aes_key)
+print("AES IV:", aes_iv)
+
+rsa_cipher = PKCS1_OAEP.new(RSA.import_key(rsa_public_key))
+encrypted_message = rsa_cipher.encrypt(aes_key + aes_iv)
+print("Encrypted Message:", encrypted_message)
+
+request = HTTPRequestMessage(
+    HTTPRequestLine('GET', '/', 'HTTP/1.1'),
+    HTTPHeaders({
+        "Connection": "keep-alive",
+        "Authorization": "Basic Y2xpZW50MToxMjM=",
+        "MyEncryption": "AES-KEY",
+    }),
+    encrypted_message
+)
+
+client_socket.send(request.serialize())
 
 server_message = HTTPResponseMessage.from_parsing(client_socket.recv(1024))
+print("Server Message:", server_message.serialize())
 
-# server_message = HTTPHeaders.from_parsing(server_message)
-print('服务端消息：', server_message.serialize())
+aes_cipher = AES.new(aes_key, AES.MODE_CBC, aes_iv)
+aes_decipher = AES.new(aes_key, AES.MODE_CBC, iv=aes_iv)
+encrypted_message = aes_cipher .encrypt(pad(b"Hello World!", AES.block_size))
+request = HTTPRequestMessage(
+    HTTPRequestLine('GET', '/', 'HTTP/1.1'),
+    HTTPHeaders({
+        "Connection": "keep-alive",
+        "Authorization": "Basic Y2xpZW50MToxMjM=",
+        "MyEncryption": "test",
+    }),
+    encrypted_message
+)
+client_socket.send(request.serialize())
+server_message = HTTPResponseMessage.from_parsing(client_socket.recv(1024))
+print("Server Message:", server_message.serialize())
 
-
+decipher_text = unpad(aes_decipher.decrypt(server_message.body), AES.block_size)
+print(decipher_text)

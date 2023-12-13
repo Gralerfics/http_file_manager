@@ -128,7 +128,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
         print(self.request.headers.serialize())
         print(self.request.body)
         print(" ======== request ======== ")
-
+        # TODO: shaking and decryption
         if self.request.headers.is_exist('MyEncryption'):
             if self.request.headers.get('MyEncryption').lower() == 'request':
                 self.encrypted_helper = HTTPServerEncryptedClass()
@@ -136,33 +136,47 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 self.response.headers.set('MyEncryption', 'rsa_public_key_response')
                 self.response.update_by_content_type(rsa_public_key, 'text/plain')
                 self.send(self.response.serialize())
-
-        # TODO: shaking and decryption
-        # handle request
-        self.response.update_version(self.request.request_line.version)
-        try:
-            self.server.http_route_handler(self)
-        except HTTPStatusException as e:
-            self.error_handler(e.status_code, e.status_desc)
-        except Exception:
-            # raise
-            self.error_handler(500) # TODO: ensure the server will not crash due to one of the connections
-        
-        # send prepared response
-        if not self.chunked_launched:
-            # TODO: server to client, entropy
-            self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
+            elif self.request.headers.get('MyEncryption').lower() == 'aes-key':
+                aes_key_iv = self.encrypted_helper.rsa_decrypt(self.request.body)
+                aes_key = aes_key_iv[:16]
+                aes_iv = aes_key_iv[16:]
+                self.encrypted_helper.set_aes_key(aes_key, aes_iv)
+                self.response.headers.set('MyEncryption', 'aes_set_complete')
+                self.response.update_by_content_type('', 'text/plain')
+                self.send(self.response.serialize())
+            elif self.request.headers.get('MyEncryption').lower() == 'test':
+                message = self.encrypted_helper.aes_decrypt(self.request.body)
+                response = message + b"is recieved!"
+                response = self.encrypted_helper.aes_encrypt(response)
+                self.response.headers.set('MyEncryption', 'test-response')
+                self.response.update_by_content_type(response, 'text/aes-encrypted')
+                self.send(self.response.serialize())
         else:
-            if not self.chunked_finished:
-                raise(500, 'Chunked Transfer Not Terminated')
-        
-        # close connection if Connection: close
-        if self.request.headers.is_exist('Connection') and self.request.headers.get('Connection').lower() == 'close':
-            self.shutdown()
-        
-        # refresh response and request
-        self.request = None
-        self.refresh_response()
+            # handle request
+            self.response.update_version(self.request.request_line.version)
+            try:
+                self.server.http_route_handler(self)
+            except HTTPStatusException as e:
+                self.error_handler(e.status_code, e.status_desc)
+            except Exception:
+                # raise
+                self.error_handler(500) # TODO: ensure the server will not crash due to one of the connections
+            
+            # send prepared response
+            if not self.chunked_launched:
+                # TODO: server to client, entropy
+                self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
+            else:
+                if not self.chunked_finished:
+                    raise(500, 'Chunked Transfer Not Terminated')
+            
+            # close connection if Connection: close
+            if self.request.headers.is_exist('Connection') and self.request.headers.get('Connection').lower() == 'close':
+                self.shutdown()
+            
+            # refresh response and request
+            self.request = None
+            self.refresh_response()
     
     """ Override """
     def handle(self):

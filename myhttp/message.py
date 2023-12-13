@@ -200,6 +200,7 @@ class HTTPResponseMessage:
     
     @classmethod
     def from_parsing(c, data):
+        print(data)
         headerlines, body = data.split(b'\r\n\r\n')
         splited = headerlines.split(b'\r\n')
         status_line, headers = splited[0], b'\r\n'.join(splited[1:])
