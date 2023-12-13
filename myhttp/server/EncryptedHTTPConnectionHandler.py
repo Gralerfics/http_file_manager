@@ -84,6 +84,9 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                     chunk_content = chunk_content.encode()
                 # TODO: server to client, entropy
                 print("ok... in chunked_transmit")
+                if self.request.headers.is_exist('MyEncryption') and self.request.headers.get('MyEncryption').lower() == 'aes-transfer':
+                    self.response.headers.set('MyEncryption', 'aes-transfer')
+                    chunk_content = self.encrypted_helper.aes_encrypt(chunk_content)
                 self.send(f'{len(chunk_content):X}\r\n'.encode() + chunk_content + b'\r\n')
             # else: TODO: waste
         else:
@@ -140,7 +143,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 aes_iv = aes_key_iv[16:]
                 self.encrypted_helper.set_aes_key(aes_key, aes_iv)
                 self.response.headers.set('MyEncryption', 'aes_set_complete')
-                self.response.update_by_content_type('', 'text/rsa-decrypted')
+                self.response.update_body(b'')
                 self.send(self.response.serialize())
         else:
             # handle request
@@ -155,15 +158,10 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             # send prepared response
             if not self.chunked_launched:
                 # TODO: server to client, entropy
-                print("ok... here!")
-                result = self.encrypted_helper.aes_decrypt(self.encrypted_helper.aes_encrypt(b"Hello World!"))
-                print(result)
-                print(self.response.body)
-
                 if self.request.headers.is_exist('MyEncryption') and self.request.headers.get('MyEncryption').lower() == 'aes-transfer':
-                    self.response.headers.set('content-type', 'text/aes-encrypted')
-                    self.response.body = self.encrypted_helper.aes_encrypt(self.response.body)
-
+                    self.response.headers.set('content-type', 'text/plain')
+                    self.response.headers.set('MyEncryption', 'aes-transfer')
+                    self.response.update_body(self.encrypted_helper.aes_encrypt(self.response.body))
 
                 self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
             else:

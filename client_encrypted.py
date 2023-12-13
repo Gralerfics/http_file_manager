@@ -35,7 +35,6 @@ request = HTTPRequestMessage(
         "Authorization": "Basic Y2xpZW50MToxMjM=",
         "MyEncryption": "request",
     }),
-    b''
 )
 
 client_socket.send(request.serialize())
@@ -74,14 +73,13 @@ request = HTTPRequestMessage(
         "Authorization": "Basic Y2xpZW50MToxMjM=",
         "MyEncryption": "AES-Transfer",
     }),
-    b'hello'
 )
 
 client_socket.send(request.serialize())
 server_message = HTTPResponseMessage.from_parsing(client_socket.recv(1024))
 print('服务端消息：', server_message.serialize())
 
-if server_message.headers.get('Content-Type') == 'text/plain':
+if server_message.headers.get('myencryption').lower() != 'aes-transfer':
     
     print('服务端消息：', server_message.serialize())
 else:
@@ -89,3 +87,37 @@ else:
     decipher_text = unpad(aes_decipher.decrypt(server_message.body), AES.block_size)
     server_message.body = decipher_text
     print('服务端消息：', server_message.serialize())
+
+
+
+request = HTTPRequestMessage(
+    HTTPRequestLine('GET', '/client1/hello.txt?chunked=1', 'HTTP/1.1'),
+    HTTPHeaders({
+        'Connection': 'keep-alive',
+        "Authorization": "Basic Y2xpZW50MToxMjM=",
+        "MyEncryption": "AES-Transfer",
+    }),
+)
+
+
+client_socket.send(request.serialize())
+server_message = client_socket.recv(1024)
+while True:
+    rec_buf = client_socket.recv(1024)
+    splited = rec_buf.split(b'\r\n')
+    lenth, cipher_text = int(splited[0]), splited[1]
+    if lenth > 0:
+    # print("![DEBUG] ", lenth, cipher_text)
+        aes_decipher = AES.new(aes_key, AES.MODE_CBC, iv=aes_iv)
+        decipher_text = unpad(aes_decipher.decrypt(cipher_text), AES.block_size)
+        lenth = len(decipher_text)
+    else:
+        decipher_text = b''
+    print("![DEBUG] ", lenth, decipher_text)
+    server_message += rec_buf
+    if server_message[-5:] == b'0\r\n\r\n':
+        break
+
+print("server_message:", server_message)
+# server_message = HTTPResponseMessage.from_parsing(buf)
+# print('服务端消息：', server_message.serialize())
