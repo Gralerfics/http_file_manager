@@ -20,13 +20,14 @@ class HTTPServerEncryptedClass:
     def set_aes_key(self, aes_key, iv):
         assert self.aes_key == None
         self.aes_key = aes_key
-        self.aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=iv)
-        self.aes_decipher = AES.new(self.aes_key, AES.MODE_CBC, iv=iv)
+        self.iv = iv
     def aes_encrypt(self, data):
+        self.aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.iv)
         ciphertext = self.aes_cipher.encrypt(pad(data, AES.block_size))
         return ciphertext
     def aes_decrypt(self, data):
-        decrypted_message = unpad(self.aes_decipher.decrypt(data), AES.block_size)
+        self.aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.iv)
+        decrypted_message = unpad(self.aes_cipher.decrypt(data), AES.block_size)
         return decrypted_message
     def get_rsa_public_key(self):
         return self.rsa_public_key

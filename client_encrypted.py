@@ -67,21 +67,25 @@ client_socket.send(request.serialize())
 server_message = HTTPResponseMessage.from_parsing(client_socket.recv(1024))
 print("Server Message:", server_message.serialize())
 
-aes_cipher = AES.new(aes_key, AES.MODE_CBC, aes_iv)
-aes_decipher = AES.new(aes_key, AES.MODE_CBC, iv=aes_iv)
-encrypted_message = aes_cipher .encrypt(pad(b"Hello World!", AES.block_size))
 request = HTTPRequestMessage(
-    HTTPRequestLine('GET', '/', 'HTTP/1.1'),
+    HTTPRequestLine('GET', '/client1/hello.txt', 'HTTP/1.1'),
     HTTPHeaders({
-        "Connection": "keep-alive",
+        'Connection': 'keep-alive',
         "Authorization": "Basic Y2xpZW50MToxMjM=",
-        "MyEncryption": "test",
+        "MyEncryption": "AES-Transfer",
     }),
-    encrypted_message
+    b'hello'
 )
+
 client_socket.send(request.serialize())
 server_message = HTTPResponseMessage.from_parsing(client_socket.recv(1024))
-print("Server Message:", server_message.serialize())
+print('服务端消息：', server_message.serialize())
 
-decipher_text = unpad(aes_decipher.decrypt(server_message.body), AES.block_size)
-print(decipher_text)
+if server_message.headers.get('Content-Type') == 'text/plain':
+    
+    print('服务端消息：', server_message.serialize())
+else:
+    aes_decipher = AES.new(aes_key, AES.MODE_CBC, iv=aes_iv)
+    decipher_text = unpad(aes_decipher.decrypt(server_message.body), AES.block_size)
+    server_message.body = decipher_text
+    print('服务端消息：', server_message.serialize())

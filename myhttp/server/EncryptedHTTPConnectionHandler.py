@@ -83,6 +83,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 if not isinstance(chunk_content, bytes):
                     chunk_content = chunk_content.encode()
                 # TODO: server to client, entropy
+                print("ok... in chunked_transmit")
                 self.send(f'{len(chunk_content):X}\r\n'.encode() + chunk_content + b'\r\n')
             # else: TODO: waste
         else:
@@ -123,13 +124,10 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             elif self.server.http_version == 'HTTP/1.0':
                 self.request.headers.set('Connection', 'close')
 
-        print(" ======== request ======== ")
-        print(self.request.request_line.serialize())
-        print(self.request.headers.serialize())
-        print(self.request.body)
-        print(" ======== request ======== ")
+        self.response.update_version(self.request.request_line.version)
+        
         # TODO: shaking and decryption
-        if self.request.headers.is_exist('MyEncryption'):
+        if self.request.headers.is_exist('MyEncryption') and self.request.headers.get('MyEncryption').lower() != 'aes-transfer':
             if self.request.headers.get('MyEncryption').lower() == 'request':
                 self.encrypted_helper = HTTPServerEncryptedClass()
                 rsa_public_key = self.encrypted_helper.get_rsa_public_key()
@@ -142,18 +140,10 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 aes_iv = aes_key_iv[16:]
                 self.encrypted_helper.set_aes_key(aes_key, aes_iv)
                 self.response.headers.set('MyEncryption', 'aes_set_complete')
-                self.response.update_by_content_type('', 'text/plain')
-                self.send(self.response.serialize())
-            elif self.request.headers.get('MyEncryption').lower() == 'test':
-                message = self.encrypted_helper.aes_decrypt(self.request.body)
-                response = message + b"is recieved!"
-                response = self.encrypted_helper.aes_encrypt(response)
-                self.response.headers.set('MyEncryption', 'test-response')
-                self.response.update_by_content_type(response, 'text/aes-encrypted')
+                self.response.update_by_content_type('', 'text/rsa-decrypted')
                 self.send(self.response.serialize())
         else:
             # handle request
-            self.response.update_version(self.request.request_line.version)
             try:
                 self.server.http_route_handler(self)
             except HTTPStatusException as e:
@@ -165,6 +155,16 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             # send prepared response
             if not self.chunked_launched:
                 # TODO: server to client, entropy
+                print("ok... here!")
+                result = self.encrypted_helper.aes_decrypt(self.encrypted_helper.aes_encrypt(b"Hello World!"))
+                print(result)
+                print(self.response.body)
+
+                if self.request.headers.is_exist('MyEncryption') and self.request.headers.get('MyEncryption').lower() == 'aes-transfer':
+                    self.response.headers.set('content-type', 'text/aes-encrypted')
+                    self.response.body = self.encrypted_helper.aes_encrypt(self.response.body)
+
+
                 self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
             else:
                 if not self.chunked_finished:
