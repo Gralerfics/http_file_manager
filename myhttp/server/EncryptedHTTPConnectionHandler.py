@@ -4,6 +4,7 @@ from . import BaseConnectionHandlerClass
 from ..log import log_print, LogLevel
 from ..message import HTTPRequestLine, HTTPStatusLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage
 from ..exception import HTTPStatusException
+from myhttp.server.HTTPServerEncryptedClass import HTTPServerEncryptedClass 
 
 
 class RecvBufferTargetType(Enum):
@@ -81,6 +82,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             if self.request.request_line.method != 'HEAD':
                 if not isinstance(chunk_content, bytes):
                     chunk_content = chunk_content.encode()
+                # TODO: server to client, entropy
                 self.send(f'{len(chunk_content):X}\r\n'.encode() + chunk_content + b'\r\n')
             # else: TODO: waste
         else:
@@ -120,10 +122,22 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 self.request.headers.set('Connection', 'keep-alive')
             elif self.server.http_version == 'HTTP/1.0':
                 self.request.headers.set('Connection', 'close')
-        
-        # TODO
-        print('Encrypted request handled.')
-        
+
+        print(" ======== request ======== ")
+        print(self.request.request_line.serialize())
+        print(self.request.headers.serialize())
+        print(self.request.body)
+        print(" ======== request ======== ")
+
+        if self.request.headers.is_exist('MyEncryption'):
+            if self.request.headers.get('MyEncryption').lower() == 'request':
+                self.encrypted_helper = HTTPServerEncryptedClass()
+                rsa_public_key = self.encrypted_helper.get_rsa_public_key()
+                self.response.headers.set('MyEncryption', 'rsa_public_key_response')
+                self.response.update_by_content_type(rsa_public_key, 'text/plain')
+                self.send(self.response.serialize())
+
+        # TODO: shaking and decryption
         # handle request
         self.response.update_version(self.request.request_line.version)
         try:
@@ -136,6 +150,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
         
         # send prepared response
         if not self.chunked_launched:
+            # TODO: server to client, entropy
             self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
         else:
             if not self.chunked_finished:

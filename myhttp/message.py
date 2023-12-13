@@ -130,6 +130,7 @@ class HTTPRequestMessage:
         self.request_line = request_line
         self.headers = headers
         self.body = body
+        self.headers.set('Content-Length', len(body))
     
     def serialize(self):
         return self.request_line.serialize() + self.headers.serialize() + b'\r\n' + self.body
@@ -196,4 +197,12 @@ class HTTPResponseMessage:
         self.update_header('Content-Length', str(len(body)))
         self.update_header('Content-Disposition', f'{content_disposition}; filename="{os.path.basename(file_path)}"')
         self.update_body(body)
-
+    
+    @classmethod
+    def from_parsing(c, data):
+        headerlines, body = data.split(b'\r\n\r\n')
+        splited = headerlines.split(b'\r\n')
+        status_line, headers = splited[0], b'\r\n'.join(splited[1:])
+        status_line = HTTPStatusLine.from_parsing(status_line)
+        headers = HTTPHeaders.from_parsing(headers)
+        return c(status_line, headers, body)
