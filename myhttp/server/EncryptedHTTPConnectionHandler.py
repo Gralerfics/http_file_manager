@@ -93,8 +93,6 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
         
         self.response = None
         self.refresh_response()
-        self.chunked_launched = False # TODO: not allow to deactivate after activating and not allow to add Content-Length after activating.
-        self.chunked_finished = False
         
         self.additional_data = {}
     
@@ -103,6 +101,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
     """
     
     def refresh_response(self):
+        self.reset_chunked_transfer()
         self.response = HTTPResponseMessage(
             HTTPStatusLine(self.server.http_version, 200, 'OK'),
             HTTPHeaders({'Content-Length': '0'}),
@@ -137,6 +136,10 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             # else: TODO: waste
         else:
             raise HTTPStatusException(500, 'Chunked Transfer Not Launched') # TODO
+    
+    def reset_chunked_transfer(self):
+        self.chunked_launched = False
+        self.chunked_finished = False
     
     """
         Handle HTTP status errors from `connection`

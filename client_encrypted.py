@@ -148,12 +148,12 @@ class HTTPSClientClass():
 
 
 test = HTTPSClientClass("localhost", 80, "client1", "123")
-print(" =============== download =============== ")
+# print(" =============== download =============== ")
 test.download("/client1/test/hello.txt", "./stored", 1)
-test.download("/client1/test/project.pptx", "./stored", 1)
-test.download("/client1/test/Project3.pdf", "./stored", 1)
+# test.download("/client1/test/project.pptx", "./stored", 1)
+# test.download("/client1/test/Project3.pdf", "./stored", 1)
 
 print(" =============== upload =============== ")
 test.upload("client1/test", "./stored/hello.txt")
-test.upload("client1/test", "./stored/project.pptx")
-test.upload("client1/test", "./stored/Project3.pdf")
+# test.upload("client1/test", "./stored/project.pptx")
+# test.upload("client1/test", "./stored/Project3.pdf")
