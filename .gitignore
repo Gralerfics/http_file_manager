@@ -2,3 +2,4 @@ data/
 myhttp/__pycache__/
 myhttp/server/__pycache__/
 file_manager/__pycache__/
+stored/
