@@ -4,7 +4,11 @@ from . import BaseConnectionHandlerClass
 from ..log import log_print, LogLevel
 from ..message import HTTPRequestLine, HTTPStatusLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage
 from ..exception import HTTPStatusException
-from myhttp.server.HTTPServerEncryptedClass import HTTPServerEncryptedClass 
+
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
 
 
 class RecvBufferTargetType(Enum):
@@ -42,6 +46,40 @@ class RecvBufferManager:
         self.headers_encapsulated = None
         self.body = b''
         self.set_target(RecvBufferTargetType.MARKER, b'\r\n\r\n', RecvBufferState.HEADER)
+
+
+class HTTPServerEncryptedClass:
+    def __init__(self):
+        rsa_key = RSA.generate(2048)
+        self.rsa_private_key = rsa_key.export_key()
+        self.rsa_public_key = rsa_key.publickey().export_key()
+        self.aes_key = None
+    
+    def rsa_encrypt(self, data):
+        cipher_rsa = PKCS1_OAEP.new(RSA.import_key(self.rsa_public_key))
+        return cipher_rsa.encrypt(data)
+    
+    def rsa_decrypt(self, data):
+        cipher_rsa = PKCS1_OAEP.new(RSA.import_key(self.rsa_private_key))
+        return cipher_rsa.decrypt(data)
+
+    def set_aes_key(self, aes_key, iv):
+        assert self.aes_key == None
+        self.aes_key = aes_key
+        self.iv = iv
+    
+    def aes_encrypt(self, data):
+        self.aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.iv)
+        ciphertext = self.aes_cipher.encrypt(pad(data, AES.block_size))
+        return ciphertext
+    
+    def aes_decrypt(self, data):
+        self.aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.iv)
+        decrypted_message = unpad(self.aes_cipher.decrypt(data), AES.block_size)
+        return decrypted_message
+    
+    def get_rsa_public_key(self):
+        return self.rsa_public_key
 
 
 class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):

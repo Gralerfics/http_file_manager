@@ -443,7 +443,6 @@ class FileManagerServer(HTTPServer):
                 boundary = content_type_dict.get('boundary', None)
                 if boundary:
                     file_list = HTTPBodyUtils.parse_multipart_form_data(request.body, boundary)
-                    print("file_list", file_list)
                     if file_list is not None:
                         parsed = True
                         for file in file_list:

@@ -8,6 +8,8 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 import os
+
+
 class HTTPSClientClass():
     def get_response(self):
         buf = b""
@@ -147,11 +149,11 @@ class HTTPSClientClass():
 
 test = HTTPSClientClass("localhost", 80, "client1", "123")
 print(" =============== download =============== ")
-test.download("/client1/hello.txt", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
-test.download("/client1/project.pptx", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
-test.download("/client1/Project3.pdf", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
+test.download("/client1/test/hello.txt", "./stored", 1)
+test.download("/client1/test/project.pptx", "./stored", 1)
+test.download("/client1/test/Project3.pdf", "./stored", 1)
 
 print(" =============== upload =============== ")
-test.upload("client1/test", "C:/Users/mayst/Desktop/http_file_manager/stored/hello.txt")
-test.upload("client1/test", "C:/Users/mayst/Desktop/http_file_manager/stored/project.pptx")
-test.upload("client1/test", "C:/Users/mayst/Desktop/http_file_manager/stored/Project3.pdf")
+test.upload("client1/test", "./stored/hello.txt")
+test.upload("client1/test", "./stored/project.pptx")
+test.upload("client1/test", "./stored/Project3.pdf")
