@@ -143,14 +143,14 @@ class HTTPSClientClass():
             submit_body
         )
         self.client_socket.send(request.serialize())
-    
-test = HTTPSClientClass("localhost", 80, "client1", "123")
 
-# print(" =============== download =============== ")
+
+test = HTTPSClientClass("localhost", 80, "client1", "123")
+print(" =============== download =============== ")
 test.download("/client1/hello.txt", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
 test.download("/client1/project.pptx", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
 test.download("/client1/Project3.pdf", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
-# print(" =============== upload =============== ")
+print(" =============== upload =============== ")
 test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/stored/hello.txt")
 test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/stored/project.pptx")
 test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/stored/Project3.pdf")
