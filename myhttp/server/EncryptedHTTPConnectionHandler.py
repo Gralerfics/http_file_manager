@@ -149,7 +149,10 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
             # handle request
 
             # print(self.request.body)
-            self.request.body = self.encrypted_helper.aes_decrypt(self.request.body)
+            if self.request.headers.is_exist('MyEncryption') and self.request.headers.get('MyEncryption').lower() == 'aes-transfer':
+                if self.request.headers.is_exist("Content-Length") and int(self.request.headers.get("Content-Length")) > 0:
+                    self.request.body = self.encrypted_helper.aes_decrypt(self.request.body)
+                    self.request.headers.set("Content-Length", str(len(self.request.body)))
             try:
                 self.server.http_route_handler(self)
             except HTTPStatusException as e:

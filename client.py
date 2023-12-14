@@ -106,52 +106,52 @@ class HTTPSClientClass():
             status_line = HTTPRequestLine.from_parsing(status_line)
             headers = HTTPHeaders.from_parsing(headers)
             store_path = os.path.join(store_path, os.path.basename(file_path))
-            file = open(store_path, 'wb')
-            buf = b""
-            while True:
-                rec_buf = b""
-                while len(rec_buf) < 2 or rec_buf[-2:] != b'\r\n':
-                    rec_buf += self.client_socket.recv(1)
-                lenth = int(rec_buf[:-2], 16)
-                rec_buf = b""
-                for i in range(0, lenth // self.recv_block_size):
-                    rec_buf += self.client_socket.recv(self.recv_block_size)
-                rec_buf += self.client_socket.recv(lenth % self.recv_block_size)
-                self.client_socket.recv(2)
-                if (lenth == 0):
-                    break
-                else:
-                    file.write(self.aes_decrypt(rec_buf))
-            file.close()
+            with open(store_path, 'wb') as f:
+                buf = b""
+                while True:
+                    rec_buf = b""
+                    while len(rec_buf) < 2 or rec_buf[-2:] != b'\r\n':
+                        rec_buf += self.client_socket.recv(1)
+                    lenth = int(rec_buf[:-2], 16)
+                    rec_buf = b""
+                    for i in range(0, lenth // self.recv_block_size):
+                        rec_buf += self.client_socket.recv(self.recv_block_size)
+                    rec_buf += self.client_socket.recv(lenth % self.recv_block_size)
+                    self.client_socket.recv(2)
+                    if (lenth == 0):
+                        break
+                    else:
+                        f.write(self.aes_decrypt(rec_buf))
 
-    def upload(self, target_path, source_path, chunked): 
-        assert chunked == 0 or chunked == 1
-        if chunked == 0:
-            file_name = os.path.basename(source_path)
-            boundry = KeyUtils.random_key()
-            file_content = open(source_path, "rb").read()
-            submit_body = f"--{boundry}\r\nContent-Disposition: form-data; name=\"{self.username}\"; filename=\"{file_name}\"\r\nContent-Type: text/plain\r\n\r\n".encode() + file_content + f"\r\n--{boundry}\r\n".encode()
-            submit_body = self.aes_encrypt(submit_body)
-            request = HTTPRequestMessage(
-                HTTPRequestLine('POST', "/upload?path=" + target_path, 'HTTP/1.1'),
-                 HTTPHeaders({
-                    "Host": "localhost",
-                    "Content-Type": "multipart/form-data; boundary=" + boundry,
-                    "Connection": "keep-alive",
-                    "Authorization": self.authorization,
-                    "MyEncryption": "AES-Transfer",
-                }),
-                submit_body
-            )
-            self.client_socket.send(request.serialize())
-            server_message = self.get_response()
-            print(self.aes_decrypt(server_message.body))
-        else:
-            pass
 
+    def upload(self, target_path, source_path): 
+        file_name = os.path.basename(source_path)
+        boundry = KeyUtils.random_key()
+        with open(source_path, "rb") as f:
+            file_content = f.read()
+        submit_body = f"--{boundry}\r\nContent-Disposition: form-data; name=\"{self.username}\"; filename=\"{file_name}\"\r\nContent-Type: text/plain\r\n\r\n".encode() + file_content + f"\r\n--{boundry}\r\n".encode()
+        submit_body = self.aes_encrypt(submit_body)
+        request = HTTPRequestMessage(
+            HTTPRequestLine('POST', "/upload?path=" + target_path, 'HTTP/1.1'),
+                HTTPHeaders({
+                "Host": "localhost",
+                "Content-Type": "multipart/form-data; boundary=" + boundry,
+                "Connection": "keep-alive",
+                "Authorization": self.authorization,
+                "MyEncryption": "AES-Transfer",
+            }),
+            submit_body
+        )
+        self.client_socket.send(request.serialize())
+        server_message = self.get_response()
+    
 test = HTTPSClientClass("localhost", 80, "client1", "123")
-print(" =============== download =============== ")
-# test.download("/client1/hello.txt", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
-# test.download("/client1/project.pptx", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
-# test.download("/client1/Project3.pdf", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
-test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/CS303Project2Report.pdf", 0)
+
+# print(" =============== download =============== ")
+test.download("/client1/hello.txt", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
+# test.download("/client1/project.pptx", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
+# test.download("/client1/Project3.pdf", "C:/Users/mayst/Desktop/http_file_manager/stored", 1)
+# print(" =============== upload =============== ")
+test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/stored/hello.txt")
+# test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/stored/project.pptx")
+# test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/stored/Project3.pdf")
