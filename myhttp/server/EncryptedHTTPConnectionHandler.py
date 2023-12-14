@@ -83,7 +83,6 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 if not isinstance(chunk_content, bytes):
                     chunk_content = chunk_content.encode()
                 # TODO: server to client, entropy
-                print("ok... in chunked_transmit")
                 if self.request.headers.is_exist('MyEncryption') and self.request.headers.get('MyEncryption').lower() == 'aes-transfer':
                     self.response.headers.set('MyEncryption', 'aes-transfer')
                     chunk_content = self.encrypted_helper.aes_encrypt(chunk_content)
@@ -120,6 +119,7 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
         Handle a single encapsulated request from `connection`
     """
     def request_handler(self):
+
         # add default Connection header
         if not self.request.headers.is_exist('Connection'):
             if self.server.http_version == 'HTTP/1.1':
@@ -147,6 +147,9 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                 self.send(self.response.serialize())
         else:
             # handle request
+
+            # print(self.request.body)
+            self.request.body = self.encrypted_helper.aes_decrypt(self.request.body)
             try:
                 self.server.http_route_handler(self)
             except HTTPStatusException as e:
@@ -162,7 +165,6 @@ class EncryptedHTTPConnectionHandler(BaseConnectionHandlerClass):
                     self.response.headers.set('content-type', 'text/plain')
                     self.response.headers.set('MyEncryption', 'aes-transfer')
                     self.response.update_body(self.encrypted_helper.aes_encrypt(self.response.body))
-
                 self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
             else:
                 if not self.chunked_finished:

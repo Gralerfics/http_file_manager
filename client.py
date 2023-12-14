@@ -1,5 +1,6 @@
 import base64
 import socket
+from myhttp.content import KeyUtils
 from myhttp.message import HTTPRequestMessage, HTTPRequestLine, HTTPHeaders, HTTPResponseMessage
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -29,6 +30,10 @@ class HTTPSClientClass():
     def aes_decrypt(self, message):
         aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, self.aes_iv)
         return unpad(aes_cipher.decrypt(message), AES.block_size)
+    
+    def aes_encrypt(self, message):
+        aes_cipher = AES.new(self.aes_key, AES.MODE_CBC, self.aes_iv)
+        return aes_cipher.encrypt(pad(message, AES.block_size))
 
     def __init__(self, host, port, username, password):
         self.recv_block_size = 4096
@@ -67,7 +72,7 @@ class HTTPSClientClass():
         server_message = self.get_response()
 
     
-    def download_file(self, file_path, store_path, chunked): 
+    def download(self, file_path, store_path, chunked): 
         assert chunked == 0 or chunked == 1
         if chunked == 0:
             request = HTTPRequestMessage(
@@ -119,8 +124,34 @@ class HTTPSClientClass():
                     file.write(self.aes_decrypt(rec_buf))
             file.close()
 
+    def upload(self, target_path, source_path, chunked): 
+        assert chunked == 0 or chunked == 1
+        if chunked == 0:
+            file_name = os.path.basename(source_path)
+            boundry = KeyUtils.random_key()
+            file_content = open(source_path, "rb").read()
+            submit_body = f"--{boundry}\r\nContent-Disposition: form-data; name=\"{self.username}\"; filename=\"{file_name}\"\r\nContent-Type: text/plain\r\n\r\n".encode() + file_content + f"\r\n--{boundry}\r\n".encode()
+            submit_body = self.aes_encrypt(submit_body)
+            request = HTTPRequestMessage(
+                HTTPRequestLine('POST', "/upload?path=" + target_path, 'HTTP/1.1'),
+                 HTTPHeaders({
+                    "Host": "localhost",
+                    "Content-Type": "multipart/form-data; boundary=" + boundry,
+                    "Connection": "keep-alive",
+                    "Authorization": self.authorization,
+                    "MyEncryption": "AES-Transfer",
+                }),
+                submit_body
+            )
+            self.client_socket.send(request.serialize())
+            server_message = self.get_response()
+            print(self.aes_decrypt(server_message.body))
+        else:
+            pass
 
 test = HTTPSClientClass("localhost", 80, "client1", "123")
-test.download_file("/client1/hello.txt", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
-test.download_file("/client1/project.pptx", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
-test.download_file("/client1/Project3.pdf", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
+print(" =============== download =============== ")
+# test.download("/client1/hello.txt", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
+# test.download("/client1/project.pptx", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
+# test.download("/client1/Project3.pdf", "C:/Users/mayst/Desktop/http_file_manager/stored", 0)
+test.upload("client1/hahaha", "C:/Users/mayst/Desktop/http_file_manager/CS303Project2Report.pdf", 0)

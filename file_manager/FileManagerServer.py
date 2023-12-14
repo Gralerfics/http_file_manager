@@ -431,7 +431,6 @@ class FileManagerServer(HTTPServer):
     # TODO: to be checked
     def upload_file(self, virtual_path, request):
         real_path = self.root_dir + virtual_path.strip('/') + '/' # guarantee that the path is end with '/'
-        
         parsed = False
         file_errer = False
         if request.headers.is_exist('Content-Type'):
@@ -444,11 +443,13 @@ class FileManagerServer(HTTPServer):
                 boundary = content_type_dict.get('boundary', None)
                 if boundary:
                     file_list = HTTPBodyUtils.parse_multipart_form_data(request.body, boundary)
+                    print("file_list", file_list)
                     if file_list is not None:
                         parsed = True
                         for file in file_list:
                             filename = file.get('filename', None)
                             content = file.get('content', None)
+                            
                             # 重名覆盖
                             if filename is not None and content is not None:
                                 try:
