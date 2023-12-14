@@ -54,8 +54,6 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         
         self.response = None
         self.refresh_response()
-        self.chunked_launched = False
-        self.chunked_finished = False
         
         self.additional_data = {}
     
@@ -141,7 +139,7 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
             self.send(self.response.serialize() if self.request.request_line.method != 'HEAD' else self.response.serialize_header())
         else:
             if not self.chunked_finished:
-                raise(500, 'Chunked Transfer Not Terminated')
+                self.error_handler(500, 'Chunked Transfer Not Terminated')
         
         # close connection if Connection: close
         if self.request.headers.is_exist('Connection') and self.request.headers.get('Connection').lower() == 'close':
