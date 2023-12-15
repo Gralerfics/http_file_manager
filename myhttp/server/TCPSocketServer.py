@@ -2,7 +2,7 @@ import socket
 import threading
 import selectors
 
-from ..log import log_print
+from ..log import log_print, LogLevel
 
 
 class BaseConnectionHandlerClass:
@@ -72,22 +72,25 @@ class TCPSocketServer:
             
             # serve
             while not self.shutdown_signal:
-                events = self.selector.select(self.select_timeout) # timeout for shutdown_signal detection
-                
-                for key, mask in events:
-                    connection: socket.socket = key.fileobj
+                try:
+                    events = self.selector.select(self.select_timeout) # timeout for shutdown_signal detection
                     
-                    # TODO: 需要确认除了来新数据、连接 reset，还有什么情况会触发 welcome socket / connection socket 的变动吗？
-                    if connection == self.welcome_socket:
-                        # welcome socket is triggered
-                        new_connection_handler = self.launch_connection()
-                        self.connection_handlers_map[new_connection_handler.connection] = new_connection_handler
-                    else:
-                        # connection socket is triggered
-                        try:
-                            self.handle_connection(connection)
-                        except ConnectionError: # containing ConnectionResetError, ConnectionAbortedError, etc.
-                            self.shutdown_connection(connection)
+                    for key, mask in events:
+                        connection: socket.socket = key.fileobj
+                        
+                        # TODO: 需要确认除了来新数据、连接 reset，还有什么情况会触发 welcome socket / connection socket 的变动吗？
+                        if connection == self.welcome_socket:
+                            # welcome socket is triggered
+                            new_connection_handler = self.launch_connection()
+                            self.connection_handlers_map[new_connection_handler.connection] = new_connection_handler
+                        else:
+                            # connection socket is triggered
+                            try:
+                                self.handle_connection(connection)
+                            except ConnectionError: # containing ConnectionResetError, ConnectionAbortedError, etc.
+                                self.shutdown_connection(connection)
+                except Exception:
+                    log_print('unknown error', LogLevel.ERROR)
         finally:
             self.shutdown_signal = False
             self.is_shutdown.set()
@@ -103,7 +106,7 @@ class TCPSocketServer:
         connection_handler = self.ConnectionHandlerClass(connection, self)  # encapsulate
         connection_handler.setup()                                          # lifecycle: setup()
         return connection_handler
-
+    
     def handle_connection(self, connection):
         connection_handler = self.connection_handlers_map.get(connection)   # get connection handler
         connection_handler.handle()                                         # lifecycle: handle()
