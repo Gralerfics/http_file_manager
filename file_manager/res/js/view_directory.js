@@ -1,4 +1,4 @@
-var directoryList = document.getElementById('directoryList');
+var directoryList = document.getElementById('directoryListOld');
 
 if (!window.location.pathname.endsWith('/')) {
     window.location.pathname += '/';
