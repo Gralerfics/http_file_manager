@@ -34,8 +34,18 @@ function uploadFile(path, file) {
             window.location.reload();
         };
 
+        xhr.upload.onprogress = function (event) {
+            if (event.lengthComputable) {
+                var percentComplete = event.loaded / event.total;
+                var progress = document.getElementById("uploadProgress");
+                progress.value = percentComplete * 100;
+                progress.style.display = "block";
+            }
+        }
+
         xhr.onerror = function () {
             console.error('Upload failed.');
+            progress.style.display = "none";
             alert(xhr.status + ' ' + xhr.statusText)
         };
 
@@ -108,13 +118,55 @@ function displayFolderContentsAsIcons(list) {
             ["Open", function() {
                 window.location.href = "./" + item;
             }],
+            ["Rename", function() {
+                var new_name = prompt("Please enter the new name", item);
+                if (new_name != null) {
+                    // TODO: validate new_name
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '{{ file_manager_api_route }}/rename?path=' + window.location.pathname + item + '&rename=' + new_name, true);
+
+                    xhr.onload = function () {
+                        window.location.reload();
+                        console.log('Rename successfully.');
+                        alert(xhr.status + ' ' + xhr.statusText)
+                    };
+
+                    xhr.onerror = function () {
+                        console.error('Rename failed.');
+                        alert(xhr.status + ' ' + xhr.statusText)
+                    };
+
+                    xhr.send('');
+                }
+            }],
             ["Delete", function() {
                 deleteFile(window.location.pathname + item);
             }]
         ]));
-
+        
         fileList.appendChild(icon_panel);
     });
+
+    // upload icon
+    var icon_panel = document.createElement("div");
+    icon_panel.className = "upload_icon_panel";
+
+    var icon = document.createElement("i");
+    icon.className = "iconfont icon-plus";
+    icon_panel.appendChild(icon);
+
+    var progress = document.createElement("progress");
+    progress.id = "uploadProgress";
+    progress.value = 0;
+    progress.max = 100;
+    icon_panel.appendChild(progress);
+
+    icon_panel.addEventListener("click", function() {
+        var uploadButton = document.getElementById("uploadButton");
+        uploadButton.click();
+    });
+
+    fileList.appendChild(icon_panel);
 }
 
 function displayFolderContentsAsList(contents) {
@@ -125,8 +177,6 @@ function displayFolderContentsAsList(contents) {
     ul.className = "icon-list"; // 添加一个类名用于样式控制
 
     contents.forEach(function(item) {
-        console.log(item.slice(0, -1))
-
         var li = document.createElement("li");
         var icon = document.createElement("i");
         icon.className = item.charAt(item.length - 1) === "/" ? "iconfont icon-folder folder-icon" : "iconfont icon-file file-icon";
@@ -187,6 +237,29 @@ function initialize() {
         var fileInput = document.getElementById("fileInput");
         var file = fileInput.files[0];
         uploadFile(window.location.pathname, file);
+    });
+
+    // new folder button
+    var newFolderButton = document.getElementById("newFolderButton");
+    newFolderButton.addEventListener("click", function() {
+        var folder_name = prompt("Please enter the folder name", "New Folder");
+        if (folder_name != null) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '{{ file_manager_api_route }}/new_folder?path=' + window.location.pathname + folder_name, true);
+
+            xhr.onload = function () {
+                window.location.reload();
+                console.log('Create successfully.');
+                alert(xhr.status + ' ' + xhr.statusText)
+            };
+
+            xhr.onerror = function () {
+                console.error('Create failed.');
+                alert(xhr.status + ' ' + xhr.statusText)
+            };
+
+            xhr.send('');
+        }
     });
     
     // back button

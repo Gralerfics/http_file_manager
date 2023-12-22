@@ -5,6 +5,7 @@ import shutil
 import json
 import time
 import os
+import re
 
 from myhttp.server import HTTPServer, HTTPConnectionHandler
 from myhttp.exception import HTTPStatusException
@@ -142,13 +143,57 @@ class FileManagerServer(HTTPServer):
     def api_user_register(path, parameters, connection_handler):
         request = connection_handler.request
         server = connection_handler.server
+        response = connection_handler.request
         
-        if len(path) > 0:
+        # TODO
+    
+    def api_new_folder(path, parameters, connection_handler):
+        request = connection_handler.request
+        server = connection_handler.server
+        response = connection_handler.response
+        
+        if not parameters.__contains__('path'):                                             # param path not exist
+            raise HTTPStatusException(400, 'Param path Not Exist')
+        
+        virtual_path = parameters.get('path').strip('/')                                    # target path (virtual)
+        located_user = server.belongs_to(virtual_path)                                      # target user
+        
+        username, new_cookie = server.authenticate(connection_handler)                      # authenticate
+        if new_cookie:
+            response.update_header('Set-Cookie', f'session-id={new_cookie}')
+        if username != located_user:                                                        # wrong user
+            raise HTTPStatusException(403)
+        
+        # TOOD: is prefix folder exist?
+        server.mkdir(virtual_path)
+    
+    def api_rename(path, parameters, connection_handler):
+        request = connection_handler.request
+        server = connection_handler.server
+        response = connection_handler.response
+        
+        if not parameters.__contains__('path'):                                             # param path not exist
+            raise HTTPStatusException(400, 'Param path Not Exist')
+        
+        if not parameters.__contains__('rename'):                                           # param rename not exist
+            raise HTTPStatusException(400, 'Param rename Not Exist')
+        
+        # TODO: is folder name valid?
+        
+        virtual_path = parameters.get('path').strip('/')                                    # target path (virtual)
+        located_user = server.belongs_to(virtual_path)                                      # target user
+        
+        username, new_cookie = server.authenticate(connection_handler)                      # authenticate
+        if new_cookie:
+            response.update_header('Set-Cookie', f'session-id={new_cookie}')
+        if username != located_user:                                                        # wrong user
+            raise HTTPStatusException(403)
+        
+        if not server.is_exist(virtual_path):                                               # path not exist
             raise HTTPStatusException(404)
         
-        # TODO: 后端 API 接口, POST, 注册用户
-            # 注意用户不能叫 upload, delete, frontend_res, backend_api, etc.
-        pass
+        prefix_path = '/'.join(virtual_path.split('/')[:-1])
+        os.rename(server.get_path(virtual_path), server.get_path(prefix_path + '/' + parameters.get('rename')))
 
     def fetch_handler(path, parameters, connection_handler):
         request = connection_handler.request
@@ -246,7 +291,7 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(405)
         
         if not parameters.__contains__('path'):                                             # param path not exist
-            raise HTTPStatusException(400, 'Param Path Not Exist')
+            raise HTTPStatusException(400, 'Param path Not Exist')
         
         virtual_path = parameters.get('path').strip('/')                                    # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
@@ -279,7 +324,7 @@ class FileManagerServer(HTTPServer):
             raise HTTPStatusException(405)
         
         if not parameters.__contains__('path'):                                             # param path not exist
-            raise HTTPStatusException(400, 'Param Path Not Exist')
+            raise HTTPStatusException(400, 'Param path Not Exist')
         
         virtual_path = parameters.get('path').strip('/')                                        # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
@@ -326,6 +371,8 @@ class FileManagerServer(HTTPServer):
         
         self.route(self.res_route, methods = 'GET')(FileManagerServer.resource_handler)
         self.route(self.api_route + '/user_register', methods = 'POST')(FileManagerServer.api_user_register)
+        self.route(self.api_route + '/new_folder', methods = 'POST')(FileManagerServer.api_new_folder)
+        self.route(self.api_route + '/rename', methods = 'POST')(FileManagerServer.api_rename)
         self.route(self.fetch_route, methods = ['GET', 'HEAD', 'POST'])(FileManagerServer.fetch_handler)
         self.route(self.upload_route, methods = ['GET', 'HEAD', 'POST'])(FileManagerServer.upload_handler)
         self.route(self.delete_route, methods = ['GET', 'HEAD', 'POST'])(FileManagerServer.delete_handler)

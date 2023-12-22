@@ -6,28 +6,30 @@
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
         <title>File Manager</title>
         <link rel="stylesheet" href="{{ file_manager_res_route }}/css/view_directory.css?v=1.0">
-        <link rel="stylesheet" href="{{ file_manager_res_route }}/fonts/iconfont.css?v=1.0">
+        <link rel="stylesheet" href="{{ file_manager_res_route }}/font/iconfont.css?v=1.0">
     </head>
     <body>
         <div class="browser_panel">
             <div class="toolbar">
                 <button id="uploadButton">
-                    <!-- <i class="iconfont icon-plus"></i> -->
+                    <i class="iconfont icon-plus"></i>
                     Upload
                 </button>
+                <button id="newFolderButton">
+                    <i class="iconfont icon-plus"></i>
+                    New Folder
+                </button>
                 <button id="backButton">
-                    <!-- <i class="iconfont icon-plus"></i> -->
                     Previous
                 </button>
                 <button id="toggleViewButton">
-                    <!-- <i class="iconfont icon-plus"></i> -->
                     Change View
                 </button>
                 <form id="uploadForm" enctype="multipart/form-data" style="display: none;">
                     <input type="file" id="fileInput" name="file" required>
                 </form>
             </div>
-
+            
             <div class="file_inspector">
                 <div class="bread_crumb">
                     <ul class="path_elements"></ul>

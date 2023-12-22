@@ -2,7 +2,8 @@
     --background-color: rgb(255, 255, 255);
     --button-background-color: rgb(240, 240, 240);
     --button-foreground-color: rgb(14, 111, 238);
-    --button-hover-background-color: rgb(208, 230, 255);
+    --button-hover-background-color: rgb(180, 215, 255);
+    --file-hover-background-color: rgb(241, 241, 241);
     --menu-foreground-color: rgb(95, 95, 95);
     --edge-color: rgb(216, 220, 229);
 }
@@ -39,6 +40,22 @@ body {
 }
 
 .toolbar button:hover {
+    background-color: var(--button-hover-background-color);
+}
+
+.toolbar button i {
+    font-size: 10px;
+    margin-right: 5px;
+}
+
+.toolbar #uploadButton,
+.toolbar #newFolderButton {
+    color: var(--background-color);
+    background-color: var(--button-foreground-color);
+}
+
+.toolbar #uploadButton:hover,
+.toolbar #newFolderButton:hover {
     background-color: var(--button-hover-background-color);
 }
 
@@ -119,18 +136,24 @@ body {
     justify-self: space-between;
 }
 
-.file_list .file_icon_panel {
-    margin: 10px;
+.file_list .file_icon_panel,
+.file_list .upload_icon_panel {
+    margin-top: 20px;
+    margin-left: 20px;
     width: 120px;
     height: 120px;
     border-radius: 6px;
     border: 2px solid var(--edge-color);
     background-color: var(--background-color);
     color: var(--menu-foreground-color);
+    box-shadow: 0 5px 5px rgba(152, 152, 152, 0.2);
 }
 
-.file_list .file_icon_panel:hover {
-    background-color: var(--button-hover-background-color);
+.file_list .file_icon_panel:hover,
+.file_list .upload_icon_panel:hover {
+    background-color: var(--file-hover-background-color);
+    position: relative;
+    top: -3px;
 }
 
 .file_list .file_icon_panel .iconfont {
@@ -153,13 +176,22 @@ body {
     top: 5px;
 }
 
-/* .file_list li {
-    padding: 8px 15px;
+.file_list .upload_icon_panel .iconfont {
+    color: rgb(180, 180, 180);
+    font-size: 30px;
+    position: relative;
+    top: 45px;
+    left: 45px;
 }
 
-.file_list li h5 {
-    text-align: center;
-} */
+.file_list .upload_icon_panel progress {
+    position: relative;
+    top: 50px;
+    left: 10px;
+    width: 100px;
+    height: 15px;
+    display: none;
+}
 
 /* rc_menu */
 .rc_menu {
