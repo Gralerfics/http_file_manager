@@ -1,0 +1,190 @@
+:root {
+    --background-color: rgb(255, 255, 255);
+    --button-background-color: rgb(240, 240, 240);
+    --button-foreground-color: rgb(14, 111, 238);
+    --button-hover-background-color: rgb(208, 230, 255);
+    --menu-foreground-color: rgb(95, 95, 95);
+    --edge-color: rgb(216, 220, 229);
+}
+
+/* body */
+body {
+    margin: 0;
+    padding: 0;
+}
+
+/* browser_panel */
+.browser_panel {
+    height: 100%;
+    width: 100%;
+}
+
+/* browser_panel - toolbar */
+.browser_panel .toolbar {
+    height: 62px;
+    display: flex;
+    align-items: center;
+    padding-left: 7px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--edge-color);
+}
+
+.toolbar button {
+    color: var(--button-foreground-color);
+    background-color: var(--button-background-color);
+    margin-left: 5px;
+    border: 0px solid var(--edge-color);
+    padding: 7px 15px;
+    border-radius: 7px;
+}
+
+.toolbar button:hover {
+    background-color: var(--button-hover-background-color);
+}
+
+/* browser_panel - file_inspector */
+.browser_panel .file_inspector {
+    width: 100%;
+    height: 100%;
+}
+
+/* browser_panel - file_inspector - file_inspector_background */
+.file_inspector_background {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-color: var(--background-color);
+    z-index: -1;
+}
+
+/* browser_panel - file_inspector - bread_crumb */
+.file_inspector .bread_crumb {
+    width: 100%;
+    background-color: var(--background-color);
+    display: flex;
+    align-items: center;
+    height: 30px;
+}
+
+.bread_crumb ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.bread_crumb .path_elements {
+    display: flex;
+}
+
+.bread_crumb .path_elements li {
+    line-height: 30px;
+    padding-left: 8px;
+    padding-right: 16px;
+    background-color: var(--edge-color);
+    position: relative;
+    font-size: 13px;
+    color: var(--menu-foreground-color);
+}
+
+.bread_crumb .path_elements li::after,
+.bread_crumb .path_elements li::before {
+    position: absolute;
+    right: 0;
+    content: "";
+    border: 7px solid #fff;
+    border-top-width: 10px;
+    border-bottom-width: 10px;
+    border-left-color: transparent;
+}
+
+.bread_crumb .path_elements li::after {
+    top: 0;
+    border-bottom-color: transparent;
+}
+
+.bread_crumb .path_elements li::before {
+    bottom: 0;
+    border-top-color: transparent;
+}
+
+/* browser_panel - file_inspector - file_list */
+.file_inspector .file_list {
+    width: 100%;
+    height: 100%;
+    background-color: var(--background-color);
+    display: flex;
+    flex-wrap: wrap;
+    justify-self: space-between;
+}
+
+.file_list .file_icon_panel {
+    margin: 10px;
+    width: 120px;
+    height: 120px;
+    border-radius: 6px;
+    border: 2px solid var(--edge-color);
+    background-color: var(--background-color);
+    color: var(--menu-foreground-color);
+}
+
+.file_list .file_icon_panel:hover {
+    background-color: var(--button-hover-background-color);
+}
+
+.file_list .file_icon_panel .iconfont {
+    color: rgb(180, 180, 180);
+    font-size: 60px;
+    position: relative;
+    top: 15px;
+    left: 30px;
+}
+
+.file_list .file_icon_panel p {
+    text-align: center;
+    font-size: 13px;
+    position: relative;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100px;
+    left: 10px;
+    top: 5px;
+}
+
+/* .file_list li {
+    padding: 8px 15px;
+}
+
+.file_list li h5 {
+    text-align: center;
+} */
+
+/* rc_menu */
+.rc_menu {
+    position: absolute;
+    z-index: 255;
+    padding: 5px;
+    width: 160px;
+    top: 0;
+    left: 0;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    /* opacity: 0; */
+    display: none;
+}
+
+.rc_menu li {
+    list-style-type: none;
+    padding: 8px;
+    background-color: var(--background-color);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--menu-foreground-color);
+}
+
+.rc_menu li:hover {
+    background-color: var(--button-hover-background-color);
+}

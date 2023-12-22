@@ -397,7 +397,6 @@ class FileManagerServer(HTTPServer):
                         self.cookie_manager.remove(session_id)
                     else:
                         authenicated = True
-                        # TODO: 通过 cookie 访问需要更新 cookie 的 time_stamp 吗？
         # no cookie or cookie is invalid: check if there is valid authorization
         if not authenicated and request.headers.is_exist('Authorization'):
             username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization

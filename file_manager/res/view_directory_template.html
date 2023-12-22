@@ -1,518 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>File Manager</title>
-    <link rel="stylesheet" href="{{ file_manager_res_route }}/css/main.css?v=1.0">
-    <link rel="stylesheet" href="{{ file_manager_res_route }}/fonts/iconfont.css?v=1.0">
-</head>
-<body>
-
-<header class="top_header">
-    <h1 class="logo"><a href="">王卓云</a></h1>
-    <div class="right_function">
-        <div class="search_file">
-            <i class="iconfont icon-search"></i>
-            <input type="text" placeholder="搜索全部文件">
-        </div>
-
-    </div>
-</header>
-
-
-<main>
-    <div class="left_menu">
-        <ul class="menu">
-            <li class="active">
-                <span>云文件</span>
-            </li>
-        </ul>
-
-    </div>
-    <!-- left menu - end -->
-
-    <!-- right panel - start -->
-    <div class="right_panel">
-
-        <!-- tool bar - start -->
-        <div class="toolbar">
-
-            <form id="uploadForm" enctype="multipart/form-data">
-
-<input type="file" id="fileInput" name="file" required>
-
-
-                <button class="upload_button">
-                    <i class="iconfont icon-plus"></i>
-                    上传文件
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>File Manager</title>
+        <link rel="stylesheet" href="{{ file_manager_res_route }}/css/view_directory.css?v=1.0">
+        <link rel="stylesheet" href="{{ file_manager_res_route }}/fonts/iconfont.css?v=1.0">
+    </head>
+    <body>
+        <div class="browser_panel">
+            <div class="toolbar">
+                <button id="uploadButton">
+                    <!-- <i class="iconfont icon-plus"></i> -->
+                    Upload
                 </button>
-            </form>
+                <button id="backButton">
+                    <!-- <i class="iconfont icon-plus"></i> -->
+                    Previous
+                </button>
+                <button id="toggleViewButton">
+                    <!-- <i class="iconfont icon-plus"></i> -->
+                    Change View
+                </button>
+                <form id="uploadForm" enctype="multipart/form-data" style="display: none;">
+                    <input type="file" id="fileInput" name="file" required>
+                </form>
+            </div>
 
-            <button id="backButton">返回上一级</button>
-            <button id="toggleViewButton">切换显示方式</button>
-            <button id="refreshButton"><i class="iconfont icon-refresh"></i></button>
-
-        </div>
-        <!-- tool bar - end -->
-
-
-        <div class="content">
-            <!-- dir tree - start -->
-
-            <ul class="dir_tree" id="directoryList">
-                <!-- 这里将会动态添加目录 -->
-            </ul>
-            <!-- dir tree - end -->
-            <script>
-
-                // 获取右侧文件展示框、返回按钮、刷新按钮和切换按钮
-
-                var refreshButton = document.getElementById("refreshButton");
-                var uploadButton = document.getElementById("uploadButton");
-                var newFolderButton = document.getElementById("newFolderButton");
-
-
-                // 刷新按钮点击事件处理函数
-                refreshButton.addEventListener("click", function () {
-                    window.location.href = "./";
-                });
-
-
-                var directoryData = [
-                    {
-                        "name": "我的文档",
-                        "type": "folder",
-                        "children": [
-                            {
-                                "name": "文档1.txt",
-                                "type": "file"
-                            },
-                            {
-                                "name": "文档2.txt",
-                                "type": "file"
-                            }
-                        ]
-                    },
-                    {
-                        "name": "我的视频",
-                        "type": "folder",
-                        "children": [
-                            {
-                                "name": "我的文档1",
-                                "type": "folder",
-                                "children": [
-                                    {
-                                        "name": "文档1.txt",
-                                        "type": "file"
-                                    },
-                                    {
-                                        "name": "文档2.txt",
-                                        "type": "file"
-                                    }
-                                ]
-                            },
-                            {
-                                "name": "我的视频1",
-                                "type": "folder",
-                                "children": [
-                                    {
-                                        "name": "视频1.mp4",
-                                        "type": "file"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    // 添加更多目录和文件项
-                ];
-
-
-                // 获取目录列表容器
-                var directoryList = document.getElementById("directoryList");
-
-                // 创建函数来递归生成目录结构
-                function createDirectoryTree(data, parentElement) {
-                    var ul = document.createElement("ul");
-                    parentElement.appendChild(ul);
-
-                    data.forEach(function (item) {
-                        var li = document.createElement("li");
-                        var icon = document.createElement("i");
-                        icon.className = item.type === "folder" ? "iconfont icon-folder folder" : "iconfont icon-file"; // 根据需要添加图标样式类
-                        var span = document.createElement("span");
-                        span.textContent = item.name;
-                        li.appendChild(icon);
-                        li.appendChild(span);
-                        ul.appendChild(li);
-
-                        if (item.children && item.children.length > 0) {
-                            li.className = "folder";
-                            createDirectoryTree(item.children, li); // 递归处理子目录
-                        } else {
-                            li.className = "hidden";
-                        }
-                    });
-                }
-
-                directoryList.addEventListener("click", function (event) {
-                    var target = event.target;
-                    if (target.textContent.includes(".")) {
-                        return;
-                    }
-                    console.log(target.textContent);
-
-                    // 寻找父元素中的 "folder" 类
-                    var folder = findParentWithClass(target, "folder");
-                    console.log(folder);
-
-                    // 如果点击的元素是 "span"，且找到了包含 "folder" 类的父元素
-                    if (target.tagName === "SPAN" && folder) {
-                        toggleFolder(folder);
-                        event.stopPropagation(); // 阻止事件继续冒泡
-                    }
-                });
-
-                // 在目录列表上添加双击事件监听器
-                directoryList.addEventListener("dblclick", function (event) {
-                    var target = event.target;
-
-                    // 检查点击的元素是否是带有 "file" 类的文件项
-                    if (target.textContent.includes(".")) {
-                        // 获取文件名称
-                        var fileName = target.textContent;
-
-                        // 如果获取到了文件名称
-                        if (fileName) {
-                            // 在这里可以使用 fileName 做进一步处理
-                            console.log("双击的文件名称是：" + fileName);
-
-                            displayFilePath(target);
-                        }
-                    }
-                });
-
-                // 递归查找包含指定类名的父元素
-                function findParentWithClass(element, className) {
-                    while (element && !element.classList.contains(className)) {
-                        element = element.parentElement;
-                    }
-                    return element;
-                }
-
-                // 输出文件所在位置
-                function displayFilePath(fileElement) {
-                    var filePath = [];
-                    var currentElement = fileElement.parentElement; // 修改此行，从 fileElement 直接取父元素
-
-                    // 遍历父元素，直到根目录
-                    while (currentElement && !currentElement.classList.contains("dir_tree")) {
-                        var folderName = currentElement.querySelector("span").textContent;
-                        filePath.unshift(folderName); // 将当前文件夹添加到路径的开头
-
-                        currentElement = findParentWithClass(currentElement.parentElement, "folder");
-                    }
-
-                    filePath.pop();
-
-                    // 输出文件所在位置
-                    console.log("文件所在位置：" + filePath.join(" > "));
-                    console.log(filePath)
-
-                    // displayFolderContentsByPath(filePath);
-                    diaplayNow = filePath;
-                }
-
-
-                // 切换文件夹的显示和隐藏状态
-                function toggleFolder(folder) {
-                    var ul = folder.querySelector("ul");
-                    if (ul) {
-                        ul.style.display = ul.style.display === "none" ? "block" : "none";
-                    }
-                }
-
-                // 使用定义的 JSON 数据对象来生成目录结构
-                createDirectoryTree(directoryData, directoryList);
-
-
-            </script>
-
-            <div class="files">
-                <!-- bread crumb - start -->
+            <div class="file_inspector">
                 <div class="bread_crumb">
-
-                    <ul class="path">
-
-                    </ul>
-
-                    <!-- 添加切换显示方式的按钮 -->
-
+                    <ul class="path_elements"></ul>
                 </div>
-                <!-- bread crumb - end -->
-
-
-                <!-- file list - start -->
-                <!-- 在HTML中添加一个返回上一级按钮 -->
-
-
-                <!-- 文件列表 -->
-                <ul class="file_list"></ul>
-
-
-                <script>
-                    // 获取右侧文件展示框、返回按钮和切换按钮
-                    var fileDisplay = document.querySelector(".file_list");
-                    var backButton = document.getElementById("backButton");
-                    var toggleViewButton = document.getElementById("toggleViewButton");
-
-                    // 定义包含全部目录的 JSON 数据（可以根据实际情况替换成你的数据）
-                    var allDirectories = directoryData;
-
-                    // 定义一个函数来根据多个文件夹名称逐层展示内容
-                    function displayFolderContentsByPath(folderNames) {
-                        // 初始化当前目录为根目录
-                        var currentDirectory = allDirectories;
-
-                        // 遍历多个文件夹名称
-                        for (var i = 0; i < folderNames.length; i++) {
-                            var folderName = folderNames[i];
-
-                            // 查找对应文件夹的数据
-                            var folderData = currentDirectory.find(function (item) {
-                                return item.name === folderName && item.type === "folder";
-                            });
-
-                            // 如果找到了对应文件夹的数据
-                            if (folderData && folderData.children) {
-                                // 设置当前目录为找到的文件夹的子项
-                                currentDirectory = folderData.children;
-                            } else {
-                                // 如果找不到对应文件夹，则中断循环
-                                break;
-                            }
-                        }
-
-                        // 清空右侧文件展示框的内容
-                        fileDisplay.innerHTML = "";
-
-                    }
-
-                    // 更新 breadcrumb 的内容
-                    function setBreadcrumb(folderNames) {
-                        console.log(folderNames)
-                        var breadcrumb = document.querySelector(".bread_crumb .path");
-                        // 清空 breadcrumb 的内容
-                        breadcrumb.innerHTML = "";
-                        // 遍历 folderNames，创建并添加 breadcrumb 的项
-                        folderNames.forEach(function (folderName, index) {
-                            if (index === folderNames.length - 1) {
-                                return
-                            }
-                            var li = document.createElement("li");
-                            li.textContent = folderName;
-                            breadcrumb.appendChild(li);
-                            // 添加分隔符，除了最后一个项
-                            if (index < folderNames.length - 1) {
-                                var separator = document.createElement("span");
-                                separator.textContent = " > ";
-                                breadcrumb.appendChild(separator);
-                            }
-                        });
-                    }
-
-                    // 切换显示方式的按钮点击事件
-                    toggleViewButton.addEventListener("click", function () {
-                        isListView = !isListView; // 切换显示方式
-
-                        fileDisplay.innerHTML = ""; // 清空右侧文件展示框的内容
-
-                        if (isListView) {
-                            // 列表显示方式
-                            displayFolderContentsAsList(list);
-                        } else {
-                            // 图标显示方式
-                            displayFolderContentsAsIcons(list);
-                        }
-                    });
-
-                    // 初始显示方式为图标
-                    var isListView = false;
-
-                    // 根据图标显示方式生成文件展示框内容
-                    function displayFolderContentsAsIcons(contents) {
-                        console.log(contents)
-                        contents.forEach(function (item) {
-                            var li = document.createElement("li");
-                            li.style.display = "flex"; // 使用 flex 布局
-                            li.style.flexDirection = "column"; // 垂直方向布局
-                            li.style.alignItems = "center"; // 在交叉轴上居中对齐
-
-                            var icon = document.createElement("i");
-                            icon.className = item.charAt(item.length - 1) === "/" ? "iconfont icon-folder folder-icon" : "iconfont icon-file file-icon";
-                            icon.addEventListener("click", function () {
-                                window.location.href = "./" + item;
-                            });
-                            var h5 = document.createElement("h5");
-                            h5.textContent = item.charAt(item.length - 1) === "/" ? item.substr(0, item.length - 1) : item;
-
-                            var icon2 = document.createElement("i");
-                            icon2.style.fontSize = "16px";
-                            icon2.className = "iconfont icon-shanchu";
-
-                            var li2 = document.createElement("li");
-                            li2.style.display = "flex"; // 使用 flex 布局
-                            li2.style.flexDirection = "row";
-
-                            // 为删除按钮添加点击事件
-                            icon2.addEventListener("click", function () {
-                                deleteFile(window.location.pathname + item);
-                            });
-
-                            li2.appendChild(h5);
-                            li2.appendChild(icon2);
-                            li.appendChild(icon);
-                            li.appendChild(li2);
-
-                            fileDisplay.appendChild(li);
-                        });
-                    }
-
-
-                    // 根据列表显示方式生成文件展示框内容
-                    function displayFolderContentsAsList(contents) {
-                        console.log("123123123123123")
-                        var ul = document.createElement("ul");
-                        ul.className = "icon-list"; // 添加一个类名用于样式控制
-
-                        contents.forEach(function (item) {
-                            console.log(item.slice(0, -1))
-
-                            var li = document.createElement("li");
-                            var icon = document.createElement("i");
-                            icon.className = item.charAt(item.length - 1) === "/" ? "iconfont icon-folder folder-icon" : "iconfont icon-file file-icon";
-                            var h5 = document.createElement("h5");
-                            h5.textContent = item.charAt(item.length - 1) === "/" ? item.substr(0, item.length - 1) : item;
-                            // 设置图标的小号大小
-                            icon.style.fontSize = "16px"; // 你可以根据需要调整大小
-
-                            icon.addEventListener("click", function () {
-                                window.location.href = "./" + item;
-                            });
-
-                            // 使用 flex 布局，将图标和文字水平排列
-                            li.style.display = "flex";
-                            var icon2 = document.createElement("i");
-                            icon2.className = "iconfont icon-shanchu";
-                            icon2.style.fontSize = "16px";
-                            // 为删除按钮添加点击事件
-                            icon2.addEventListener("click", function () {
-                                deleteFile(window.location.pathname + item);
-                            });
-                            li.appendChild(icon);
-                            li.appendChild(h5);
-                            ul.appendChild(li);
-                            li.appendChild(icon2);
-                        });
-
-                        fileDisplay.innerHTML = ""; // 清空右侧文件展示框的内容
-                        fileDisplay.appendChild(ul); // 添加整个列表
-
-
-                    }
-
-                    // 初始目录
-                    var diaplayNow = [];
-                    displayFolderContentsByPath(diaplayNow);
-
-                    // 返回按钮点击事件
-                    backButton.addEventListener("click", function () {
-                        window.location.href = "../";
-                    });
-                </script>
-                <!-- file list - end -->
+                <div class="file_list">
+                </div>
+                <div class="file_inspector_background">
+                </div>
             </div>
         </div>
-    </div>
-    <!-- right panel - end -->
-</main>
-
-<script>
-    var list = {{  scan_list  }}
-    var path = "{{ virtual_path }}"
-
-    setBreadcrumb(path.split('/'))
-    console.log(list)
-    console.log(path)
-
-
-    if (isListView) {
-        // 列表显示方式
-        displayFolderContentsAsList(list);
-    } else {
-        // 图标显示方式
-        displayFolderContentsAsIcons(list);
-    }
-
-
-    document.getElementById('uploadForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-        uploadFile(path, document.getElementById('fileInput'));
-    });
-
-
-    var directoryList = document.getElementById('directoryListOld');
-
-    if (!window.location.pathname.endsWith('/')) {
-        window.location.pathname += '/';
-    }
-
-    function deleteFile(path) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '{{ file_manager_delete_route }}?path=' + path, true);
-
-        xhr.onload = function () {
-            window.location.reload();
-            console.log('Delete successfully.');
-            alert(xhr.status + ' ' + xhr.statusText)
-        };
-
-        xhr.onerror = function () {
-            console.error('Delete failed.');
-            alert(xhr.status + ' ' + xhr.statusText)
-        };
-
-        xhr.send('');
-    }
-
-    function uploadFile(path, fileInput) {
-        var file = fileInput.files[0];
-
-        if (file) {
-            var formData = new FormData();
-            formData.append('file', file);
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '{{ file_manager_upload_route }}?path=' + path, true);
-
-            xhr.onload = function () {
-                console.log('Upload successfully.');
-                alert(xhr.status + ' ' + xhr.statusText)
-                window.location.reload();
-            };
-
-            xhr.onerror = function () {
-                console.error('Upload failed.');
-                alert(xhr.status + ' ' + xhr.statusText)
-            };
-
-            xhr.send(formData);
-        }
-    }
-
-
-</script>
-
-</body>
+        
+        <ul class="rc_menu">
+            <li>Open</li>
+            <li>Delete</li>
+        </ul>
+    </body>
 </html>
+
+<script src="{{ file_manager_res_route }}/js/view_directory.js"></script>
+<script>
+    // template information
+    var list = {{ scan_list }};
+    var path = "{{ virtual_path }}";
+
+    initialize();
+</script>

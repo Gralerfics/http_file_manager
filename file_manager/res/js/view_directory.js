@@ -1,33 +1,6 @@
-var directoryList = document.getElementById('directoryListOld');
-
 if (!window.location.pathname.endsWith('/')) {
     window.location.pathname += '/';
 }
-
-['..', '.'].concat(list).forEach(function(item) {
-    var linkItem = document.createElement('a');
-    var listItem = document.createElement('li');
-
-    linkItem.textContent = item;
-    if (item === '..') {
-        linkItem.href = '../';
-    } else if (item === '.') {
-        linkItem.href = './';
-    } else {
-        linkItem.href = './' + item;
-
-        var deleteButton = document.createElement('button');
-        deleteButton.textContent = 'Delete';
-        deleteButton.onclick = function() {
-            deleteFile(window.location.pathname + item);
-        };
-        deleteButton.style.marginRight = '10px';
-        listItem.appendChild(deleteButton);
-    }
-    listItem.appendChild(linkItem);
-
-    directoryList.appendChild(listItem);
-});
 
 function deleteFile(path) {
     var xhr = new XMLHttpRequest();
@@ -47,9 +20,7 @@ function deleteFile(path) {
     xhr.send('');
 }
 
-function uploadFile(path, fileInput) {
-    var file = fileInput.files[0];
-
+function uploadFile(path, file) {
     if (file) {
         var formData = new FormData();
         formData.append('file', file);
@@ -70,4 +41,174 @@ function uploadFile(path, fileInput) {
 
         xhr.send(formData);
     }
+}
+
+function fileElementMenuContextMenuListenerGenerator(items) {
+    return function(e) {
+        var rcMenu = document.querySelector(".rc_menu");
+        rcMenu.innerHTML = "";
+        items.forEach(function(item) {
+            var li = document.createElement("li");
+            li.textContent = item[0];
+            li.addEventListener("click", item[1]);
+            rcMenu.appendChild(li);
+        });
+        
+        e.preventDefault();
+        let windowWidth = window.innerWidth;
+        let windowHeight = window.innerHeight;
+        let cursorX = e.pageX;
+        let cursorY = e.pageY;
+        let menuWidth = rcMenu.getBoundingClientRect().width;
+        let menuHeight = rcMenu.getBoundingClientRect().height;
+        let menuX = cursorX + menuWidth > windowWidth ? windowWidth - menuWidth : cursorX;
+        let menuY = cursorY + menuHeight > windowHeight ? windowHeight - menuHeight : cursorY;
+        rcMenu.style.left = menuX + "px";
+        rcMenu.style.top = menuY + "px";
+        rcMenu.style.display = "block";
+    }
+}
+
+function setBreadcrumb(path) {
+    var breadcrumb = document.querySelector(".bread_crumb .path_elements");
+    breadcrumb.innerHTML = "";
+
+    path.forEach(function(folder_name, index) {
+        if (index === path.length - 1) return;
+        var li = document.createElement("li");
+        li.textContent = folder_name;
+        breadcrumb.appendChild(li);
+    });
+}
+
+function displayFolderContentsAsIcons(list) {
+    var fileList = document.querySelector(".file_list");
+    fileList.innerHTML = "";
+
+    list.forEach(function(item) {
+        var icon_panel = document.createElement("div");
+        icon_panel.className = "file_icon_panel";
+
+        // icon
+        var icon = document.createElement("i");
+        icon.className = item.charAt(item.length - 1) === "/" ? "iconfont icon-folder" : "iconfont icon-file";
+        icon_panel.appendChild(icon);
+
+        // text
+        var text = document.createElement("p");
+        text.title = item.charAt(item.length - 1) === "/" ? item.substr(0, item.length - 1) : item;
+        text.textContent = item.charAt(item.length - 1) === "/" ? item.substr(0, item.length - 1) : item;
+        icon_panel.appendChild(text);
+
+        // events
+        icon_panel.addEventListener("click", function() {
+            window.location.href = "./" + item;
+        });
+        icon_panel.addEventListener("contextmenu", fileElementMenuContextMenuListenerGenerator([
+            ["Open", function() {
+                window.location.href = "./" + item;
+            }],
+            ["Delete", function() {
+                deleteFile(window.location.pathname + item);
+            }]
+        ]));
+
+        fileList.appendChild(icon_panel);
+    });
+}
+
+function displayFolderContentsAsList(contents) {
+    var fileDisplay = document.querySelector(".file_list");
+    fileDisplay.innerHTML = "";
+    
+    var ul = document.createElement("ul");
+    ul.className = "icon-list"; // 添加一个类名用于样式控制
+
+    contents.forEach(function(item) {
+        console.log(item.slice(0, -1))
+
+        var li = document.createElement("li");
+        var icon = document.createElement("i");
+        icon.className = item.charAt(item.length - 1) === "/" ? "iconfont icon-folder folder-icon" : "iconfont icon-file file-icon";
+        var h5 = document.createElement("h5");
+        h5.textContent = item.charAt(item.length - 1) === "/" ? item.substr(0, item.length - 1) : item;
+        // 设置图标的小号大小
+        icon.style.fontSize = "16px"; // 你可以根据需要调整大小
+
+        icon.addEventListener("click", function() {
+            window.location.href = "./" + item;
+        });
+
+        // 使用 flex 布局，将图标和文字水平排列
+        li.style.display = "flex";
+        var icon2 = document.createElement("i");
+        icon2.className = "iconfont icon-shanchu";
+        icon2.style.fontSize = "16px";
+        // 为删除按钮添加点击事件
+        icon2.addEventListener("click", function() {
+            deleteFile(window.location.pathname + item);
+        });
+        li.appendChild(icon);
+        li.appendChild(h5);
+        ul.appendChild(li);
+        li.appendChild(icon2);
+    });
+
+    fileDisplay.appendChild(ul);
+}
+
+function initialize() {
+    // resort the list
+    list.sort(function(a, b) {
+        if (a.endsWith('/') && !b.endsWith('/')) {
+            return -1;
+        } else if (!a.endsWith('/') && b.endsWith('/')) {
+            return 1;
+        } else {
+            return a.localeCompare(b);
+        }
+    })
+
+    // breadcrumb
+    setBreadcrumb(path.split('/'))
+
+    // view mode
+    var isListView = false;
+    displayFolderContentsAsIcons(list);
+
+    // upload button
+    var uploadButton = document.getElementById("uploadButton");
+    uploadButton.addEventListener("click", function() {
+        var fileInput = document.getElementById("fileInput");
+        fileInput.click();
+    });
+    var uploadForm = document.getElementById("uploadForm");
+    uploadForm.addEventListener("change", function() {
+        var fileInput = document.getElementById("fileInput");
+        var file = fileInput.files[0];
+        uploadFile(window.location.pathname, file);
+    });
+    
+    // back button
+    var backButton = document.getElementById("backButton");
+    backButton.addEventListener("click", function() {
+        window.location.href = "../";
+    });
+
+    // toggle view button
+    var toggleViewButton = document.getElementById("toggleViewButton");
+    toggleViewButton.addEventListener("click", function() {
+        isListView = !isListView;
+        if (isListView) {
+            displayFolderContentsAsList(list);
+        } else {
+            displayFolderContentsAsIcons(list);
+        }
+    });
+
+    // file element menu
+    document.addEventListener("click", function() {
+        var rcMenu = document.querySelector(".rc_menu");
+        rcMenu.style.display = "none";
+    });
 }
