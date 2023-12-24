@@ -178,7 +178,7 @@ class FileManagerServer(HTTPServer):
         if not parameters.__contains__('rename'):                                           # param rename not exist
             raise HTTPStatusException(400, 'Param rename Not Exist')
         
-        # TODO: is folder name valid?
+        # TODO: is file name valid?
         
         virtual_path = parameters.get('path').strip('/')                                    # target path (virtual)
         located_user = server.belongs_to(virtual_path)                                      # target user
@@ -308,6 +308,8 @@ class FileManagerServer(HTTPServer):
                 server.mkdir(virtual_path)
             else:
                 raise HTTPStatusException(404)
+        
+        # TODO: a file with the same name as a folder will cause an 500 error.
         
         if not server.is_directory(virtual_path):                                           # must be a directory, TODO: which code
             raise HTTPStatusException(400, 'Target Path Not Directory')
