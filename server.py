@@ -1,7 +1,7 @@
 import sys
 import argparse
 
-from myhttp.server import HTTPConnectionHandler # , EncryptedHTTPConnectionHandler
+from myhttp.server import HTTPConnectionHandler, EncryptedHTTPConnectionHandler
 from myhttp.log import log_print, LogLevel
 from file_manager import FileManagerServer
 
@@ -20,7 +20,7 @@ args = cli_parser()
 server = FileManagerServer(
     args.ip,
     args.port,
-    ConnectionHandlerClass = HTTPConnectionHandler, # if not args.encrypted else EncryptedHTTPConnectionHandler,
+    ConnectionHandlerClass = HTTPConnectionHandler if not args.encrypted else EncryptedHTTPConnectionHandler,
     root_dir = './data/',
     reg_dir = './reg/',
     res_route = '/frontend_res',
