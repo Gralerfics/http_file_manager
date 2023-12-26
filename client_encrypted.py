@@ -13,15 +13,9 @@ from myhttp.message import HTTPRequestMessage, HTTPRequestLine, HTTPHeaders, HTT
 
 
 class EncryptedHTTPClient():
-    def __init__(self, host, port, username, password):
-        self.recv_block_size = 4096 * 4
-        self.host = host
-        self.port = port
-        self.username = username
-        self.password = password
+    def connect(self):
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((self.host, self.port))
-        self.authorization = "Basic " + base64.b64encode((username + ':' + password).encode('utf-8')).decode('utf-8')
         request = HTTPRequestMessage(
             HTTPRequestLine('GET', '/', 'HTTP/1.1'),
             HTTPHeaders({
@@ -47,8 +41,31 @@ class EncryptedHTTPClient():
             self.rsa_encrypt(self.aes_key + self.aes_iv)
         )
         self.client_socket.send(request.serialize())
-        server_message = self.get_response()
+        server_message = self.get_response()  
     
+
+    def close(self):
+        request = HTTPRequestMessage(
+            HTTPRequestLine('GET', '/', 'HTTP/1.1'),
+            HTTPHeaders({
+                "Connection": "close",
+                "Authorization": self.authorization,
+                "MyEncryption": "request",
+            }),
+        )
+        self.client_socket.send(request.serialize())
+        server_message = self.get_response()
+        self.client_socket.close()
+
+
+    def __init__(self, host, port, username, password):
+        self.recv_block_size = 4096 * 4
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.authorization = "Basic " + base64.b64encode((username + ':' + password).encode('utf-8')).decode('utf-8')
+
     def get_response(self):
         buf = b""
         while len(buf) < 4 or buf[-4:] != b'\r\n\r\n':
@@ -76,6 +93,7 @@ class EncryptedHTTPClient():
     
     def download(self, file_path, store_path, chunked): 
         assert chunked == 0 or chunked == 1
+        self.connect()
         if chunked == 0:
             request = HTTPRequestMessage(
                 HTTPRequestLine('GET', file_path, 'HTTP/1.1'),
@@ -124,12 +142,14 @@ class EncryptedHTTPClient():
                         break
                     else:
                         f.write(self.aes_decrypt(rec_buf))
+            self.close()
 
     def upload(self, target_path, source_path): 
         file_name = os.path.basename(source_path)
         boundry = KeyUtils.random_key()
         with open(source_path, "rb") as f:
             file_content = f.read()
+        self.connect()
         submit_body = f"--{boundry}\r\nContent-Disposition: form-data; name=\"{self.username}\"; filename=\"{file_name}\"\r\nContent-Type: text/plain\r\n\r\n".encode() + file_content + f"\r\n--{boundry}\r\n".encode()
         submit_body = self.aes_encrypt(submit_body)
         request = HTTPRequestMessage(
@@ -144,22 +164,22 @@ class EncryptedHTTPClient():
             submit_body
         )
         self.client_socket.send(request.serialize())
-
+        self.close()
 
 def main():
     client = EncryptedHTTPClient("localhost", 80, "client1", "123")
 
     print(" =============== upload =============== ")
     client.upload("client1/", "./stored/hello.txt")
-    # client.upload("client1/", "./stored/project.pptx")
-    # client.upload("client1/", "./stored/Project3.pdf")
-    # clientp.upload("client1/", "./stored/1231231.pdf")
+    client.upload("client1/", "./stored/project.pptx")
+    client.upload("client1/", "./stored/Project3.pdf")
+    client.upload("client1/", "./stored/1231231.pdf")
 
     print(" =============== download =============== ")
     client.download("/client1/hello.txt", "./stored", 1)
-    # client.download("/client1/project.pptx", "./stored", 1)
-    # client.download("/client1/Project3.pdf", "./stored", 1)
-    # client.download("/client1/1231231.pdf", "./stored", 1)
+    client.download("/client1/project.pptx", "./stored", 1)
+    client.download("/client1/Project3.pdf", "./stored", 1)
+    client.download("/client1/1231231.pdf", "./stored", 1)
 
 
 if __name__ == "__main__":
