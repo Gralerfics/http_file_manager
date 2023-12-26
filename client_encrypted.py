@@ -14,7 +14,7 @@ from myhttp.message import HTTPRequestMessage, HTTPRequestLine, HTTPHeaders, HTT
 
 class EncryptedHTTPClient():
     def __init__(self, host, port, username, password):
-        self.recv_block_size = 4096
+        self.recv_block_size = 4096 * 4
         self.host = host
         self.port = port
         self.username = username
@@ -147,20 +147,19 @@ class EncryptedHTTPClient():
 
 
 def main():
-    client = EncryptedHTTPClient("localhost", 80, "client2", "234")
-
-    print(" =============== download =============== ")
-    # client.download("/client1/test/hello.txt", "./stored", 1)
-    # client.download("/client1/test/project.pptx", "./stored", 0)
-    # client.download("/client1/test/Project3.pdf", "./stored", 1)
-    client.download("/client2/1231231.pdf", "./stored", 1)
-    client.download("/client2/1231231.pdf", "./stored", 0)
+    client = EncryptedHTTPClient("localhost", 80, "client1", "123")
 
     print(" =============== upload =============== ")
-    # client.upload("client1/test", "./stored/hello.txt")
-    # client.upload("client1/test", "./stored/project.pptx")
-    # client.upload("client1/test", "./stored/Project3.pdf")
-    # client.upload("client2/", "./stored/1231231.pdf")
+    client.upload("client1/", "./stored/hello.txt")
+    # client.upload("client1/", "./stored/project.pptx")
+    # client.upload("client1/", "./stored/Project3.pdf")
+    # clientp.upload("client1/", "./stored/1231231.pdf")
+
+    print(" =============== download =============== ")
+    client.download("/client1/hello.txt", "./stored", 1)
+    # client.download("/client1/project.pptx", "./stored", 1)
+    # client.download("/client1/Project3.pdf", "./stored", 1)
+    # client.download("/client1/1231231.pdf", "./stored", 1)
 
 
 if __name__ == "__main__":
