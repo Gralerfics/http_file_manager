@@ -90,6 +90,10 @@ class CookieManager:
 
     def get(self, cookie):
         data = self._read()
+        for c in list(data.keys()):
+            if data[c].get('time_stamp', 0) + data[c].get('expire_time', CookieManager.default_expire_time) < time.time_ns():
+                data.pop(c)
+        self._write(data)
         return data.get(cookie, None)
 
     def new(self, username, time_stamp, expire_time = default_expire_time, extend_info = {}):
@@ -200,7 +204,7 @@ class FileManagerServer(HTTPServer):
         server = connection_handler.server
         response = connection_handler.response
         
-        if not request.request_line.method == 'GET':                                        # method should be GET
+        if not request.request_line.method in ['GET', 'HEAD']:                              # method should be GET or HEAD
             raise HTTPStatusException(405)
         
         virtual_path = '/'.join(path)                                                       # target path (virtual)
@@ -250,7 +254,7 @@ class FileManagerServer(HTTPServer):
                             connection_handler.finish_chunked_transfer()
                             break
                         connection_handler.chunked_transmit(chunk_content)
-            elif request.headers.is_exist('Range'): # TODO: 目录页面需要支持 Range 吗？需要的话还得放到外面
+            elif request.headers.is_exist('Range'):
                 # range download
                 with open(server.get_path(virtual_path), 'rb') as f: # TODO: 不全部读入，按照 Range 需求移动文件指针
                     file = f.read()
@@ -441,11 +445,13 @@ class FileManagerServer(HTTPServer):
             if session_id:
                 cookie_info = self.cookie_manager.get(session_id) # fetch cookie
                 if cookie_info: # cookie exists
-                    username, time_stamp, expire_time = cookie_info.get('username'), cookie_info.get('time_stamp'), cookie_info.get('expire_time')
-                    if time_stamp + expire_time < time.time_ns(): # timeout detection
-                        self.cookie_manager.remove(session_id)
-                    else:
-                        authenicated = True
+                    # username, time_stamp, expire_time = cookie_info.get('username'), cookie_info.get('time_stamp'), cookie_info.get('expire_time')
+                    # if time_stamp + expire_time < time.time_ns(): # timeout detection
+                    #     self.cookie_manager.remove(session_id)
+                    # else:
+                    #     authenicated = True
+                    username = cookie_info.get('username', None)
+                    authenicated = True
         # no cookie or cookie is invalid: check if there is valid authorization
         if not authenicated and request.headers.is_exist('Authorization'):
             username, password = HTTPHeaderUtils.parse_authorization_basic(request.headers.get('Authorization')) # parse authorization

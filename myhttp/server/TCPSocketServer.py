@@ -2,7 +2,7 @@ import socket
 import threading
 import selectors
 
-from ..log import log_print, LogLevel
+from ..log import log_print, LogLevel, do_raise
 
 
 class BaseConnectionHandlerClass:
@@ -90,6 +90,8 @@ class TCPSocketServer:
                             except ConnectionError: # containing ConnectionResetError, ConnectionAbortedError, etc.
                                 self.shutdown_connection(connection)
                 except Exception:
+                    if do_raise:
+                        raise
                     log_print('unknown error', LogLevel.ERROR)
         finally:
             self.shutdown_signal = False

@@ -7,6 +7,9 @@ class LogLevel(Enum):
     ERROR = 'ERROR'
 
 
+do_raise = False
+
+
 def log_print(message, level = LogLevel.INFO):
     if isinstance(level, LogLevel):
         print(f'[{level.value}] {message}')

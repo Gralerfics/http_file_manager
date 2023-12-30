@@ -1,7 +1,7 @@
 from enum import Enum
 
 from . import BaseConnectionHandlerClass
-from ..log import log_print, LogLevel
+from ..log import log_print, LogLevel, do_raise
 from ..message import HTTPRequestLine, HTTPStatusLine, HTTPHeaders, HTTPRequestMessage, HTTPResponseMessage
 from ..exception import HTTPStatusException
 
@@ -131,7 +131,8 @@ class HTTPConnectionHandler(BaseConnectionHandlerClass):
         except HTTPStatusException as e:
             self.error_handler(e.status_code, e.status_desc)
         except Exception:
-            # raise
+            if do_raise:
+                raise
             self.error_handler(500) # TODO: ensure the server will not crash due to one of the connections
         
         # send prepared response
