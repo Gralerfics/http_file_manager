@@ -169,12 +169,12 @@ function displayFolderContentsAsIcons(list) {
     fileList.appendChild(icon_panel);
 }
 
-function displayFolderContentsAsList(contents) {
+function displayFolderContentsAsList(contents) { // Deserted
     var fileDisplay = document.querySelector(".file_list");
     fileDisplay.innerHTML = "";
     
     var ul = document.createElement("ul");
-    ul.className = "icon-list"; // 添加一个类名用于样式控制
+    ul.className = "icon-list";
 
     contents.forEach(function(item) {
         var li = document.createElement("li");
@@ -182,19 +182,18 @@ function displayFolderContentsAsList(contents) {
         icon.className = item.charAt(item.length - 1) === "/" ? "iconfont icon-folder folder-icon" : "iconfont icon-file file-icon";
         var h5 = document.createElement("h5");
         h5.textContent = item.charAt(item.length - 1) === "/" ? item.substr(0, item.length - 1) : item;
-        // 设置图标的小号大小
-        icon.style.fontSize = "16px"; // 你可以根据需要调整大小
+
+        icon.style.fontSize = "16px";
 
         icon.addEventListener("click", function() {
             window.location.href = "./" + item;
         });
 
-        // 使用 flex 布局，将图标和文字水平排列
         li.style.display = "flex";
         var icon2 = document.createElement("i");
         icon2.className = "iconfont icon-shanchu";
         icon2.style.fontSize = "16px";
-        // 为删除按钮添加点击事件
+        
         icon2.addEventListener("click", function() {
             deleteFile(window.location.pathname + item);
         });

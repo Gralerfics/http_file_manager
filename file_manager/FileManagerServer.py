@@ -102,8 +102,6 @@ class CookieManager:
         data[cookie] = {'username': username, 'time_stamp': time_stamp, 'expire_time': expire_time, **extend_info}
         self._write(data)
         return cookie
-    
-    # TODO: timely remove expired cookies
 
     def remove(self, cookie):
         data = self._read()

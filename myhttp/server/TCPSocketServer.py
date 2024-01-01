@@ -41,7 +41,7 @@ class BaseConnectionHandlerClass:
 
 class TCPSocketServer:
     backlog_size = 10
-    select_timeout = 0.1
+    select_timeout = 0.01
     
     def __init__(self, hostname, port, ConnectionHandlerClass = BaseConnectionHandlerClass):
         self.hostname = hostname

@@ -170,16 +170,16 @@ def main():
     client = EncryptedHTTPClient("localhost", 80, "client1", "123")
 
     print(" =============== upload =============== ")
-    client.upload("client1/", "./stored/hello.txt")
-    client.upload("client1/", "./stored/project.pptx")
+    # client.upload("client1/", "./stored/hello.txt")
+    # client.upload("client1/", "./stored/project.pptx")
     client.upload("client1/", "./stored/Project3.pdf")
-    client.upload("client1/", "./stored/1231231.pdf")
+    # client.upload("client1/", "./stored/1231231.pdf")
 
     print(" =============== download =============== ")
-    client.download("/client1/hello.txt", "./stored", 1)
-    client.download("/client1/project.pptx", "./stored", 1)
+    # client.download("/client1/hello.txt", "./stored", 1)
+    # client.download("/client1/project.pptx", "./stored", 1)
     client.download("/client1/Project3.pdf", "./stored", 1)
-    client.download("/client1/1231231.pdf", "./stored", 1)
+    # client.download("/client1/1231231.pdf", "./stored", 1)
 
 
 if __name__ == "__main__":
