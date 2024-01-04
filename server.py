@@ -29,7 +29,6 @@ server = FileManagerServer(
     upload_route = '/upload',
     delete_route = '/delete'
 )
-# server.cookie_manager._write({}) # TODO: clear the cookies. to be removed?
 
 
 """
